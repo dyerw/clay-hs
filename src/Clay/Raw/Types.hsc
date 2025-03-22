@@ -97,29 +97,6 @@ instance Storable (ClayArraySlice a) where
     (#poke Clay__charArraySlice, length) ptr len
     (#poke Clay__charArraySlice, internalArray) ptr int
 
-data ClayContext = ClayContext {
-  clayContextMaxElementCount :: CInt,
-  clayContextMaxMeasureTextCacheWordCount :: CInt,
-  clayContextWarningsEnabled :: CBool,
-  clayContextErrorHandler :: ClayErrorHandler,
-  clayContextBooleanWarnings :: ClayBooleanWarnings,
-  clayContextWarnings :: ClayArray ClayWarning,
-  clayContextPointerInfo :: ClayPointerData,
-  clayContextLayoutDimensions :: ClayDimensions,
-  clayContextDynamicElementIndexBaseHash :: ClayElementId,
-  clayContextDynamicElementIndex :: CUInt,
-  clayContextDebugModeEnabled :: CBool,
-  clayContextDisableCulling :: CBool,
-  clayContextExternalScrollHandlingEnabled :: CBool,
-  clayContextDebugSelectedElementId :: CUInt,
-  clayContextGeneration :: CUInt,
-  clayContextArenaResetOffset :: CUIntPtr,
-  clayContextMeasureTextUserData :: Ptr (),
-  clayContextQueryScrollOffsetUserData :: Ptr (),
-  clayContextInternalArena :: ClayArena
-  -- Layout Elements / Render Commands
-  -- clayContextLayoutElements :: ClayArray ClayLayoutElem
-}
 
 
 
@@ -537,18 +514,21 @@ newtype ClayTextAlignment = ClayTextAlignment CUChar deriving (Eq, Show)
 clayTextAlignLeft :: ClayTextAlignment
 clayTextAlignLeft = ClayTextAlignment 0
 
+pattern ClayTextAlignLeft :: ClayTextAlignment
 pattern ClayTextAlignLeft = ClayTextAlignment 0
 
 -- | Horizontally aligns wrapped lines of text to the center of their bounding box.
 clayTextAlignCenter :: ClayTextAlignment
 clayTextAlignCenter = ClayTextAlignment 1
 
+pattern ClayTextAlignCenter :: ClayTextAlignment
 pattern ClayTextAlignCenter = ClayTextAlignment 1
 
 -- | Horizontally aligns wrapped lines of text to the right hand side of their bounding box.
 clayTextAlignRight :: ClayTextAlignment
 clayTextAlignRight = ClayTextAlignment 2
 
+pattern ClayTextAlignRight :: ClayTextAlignment
 pattern ClayTextAlignRight = ClayTextAlignment 2
 
 
@@ -681,12 +661,14 @@ newtype ClayPointerCaptureMode = ClayPointerCaptureMode CUChar
 clayPointerCaptureModeCapture :: ClayPointerCaptureMode
 clayPointerCaptureModeCapture = ClayPointerCaptureMode 0
 
+pattern ClayPointerCaptureModeCapture :: ClayPointerCaptureMode
 pattern ClayPointerCaptureModeCapture = ClayPointerCaptureMode 0
 
 -- | Transparently pass through pointer events like hover and click to elements underneath the floating element.
 clayPointerCaptureModePassthrough :: ClayPointerCaptureMode
 clayPointerCaptureModePassthrough = ClayPointerCaptureMode 1
 
+pattern ClayPointerCaptureModePassthrough :: ClayPointerCaptureMode
 pattern ClayPointerCaptureModePassthrough = ClayPointerCaptureMode 1
 
 instance Storable ClayPointerCaptureMode where
@@ -704,24 +686,28 @@ newtype ClayFloatingAttachToElement = ClayFloatingAttachToElement CUChar
 clayAttachToNone :: ClayFloatingAttachToElement
 clayAttachToNone = ClayFloatingAttachToElement 0
 
+pattern ClayAttachToNone :: ClayFloatingAttachToElement
 pattern ClayAttachToNone = ClayFloatingAttachToElement 0
 
 -- | Attaches this floating element to its parent, positioned based on the .attachPoints and .offset fields.
 clayAttachToParent :: ClayFloatingAttachToElement
 clayAttachToParent = ClayFloatingAttachToElement 1
 
+pattern ClayAttachToParent :: ClayFloatingAttachToElement
 pattern ClayAttachToParent = ClayFloatingAttachToElement 1
 
 -- | Attaches this floating element to an element with a specific ID, specified with the .parentId field. positioned based on the .attachPoints and .offset fields.
 clayAttachToElementWithId :: ClayFloatingAttachToElement
 clayAttachToElementWithId = ClayFloatingAttachToElement 2
 
+pattern ClayAttachToElementWithId :: ClayFloatingAttachToElement
 pattern ClayAttachToElementWithId = ClayFloatingAttachToElement 2
 
 -- | Attaches this floating element to the root of the layout, which combined with the .offset field provides functionality similar to "absolute positioning".
 clayAttachToRoot :: ClayFloatingAttachToElement
 clayAttachToRoot = ClayFloatingAttachToElement 3
 
+pattern ClayAttachToRoot :: ClayFloatingAttachToElement 
 pattern ClayAttachToRoot = ClayFloatingAttachToElement 3
 
 instance Storable ClayFloatingAttachToElement where
@@ -1176,9 +1162,6 @@ instance Storable ClayRenderCommand where
       ClayRenderDataCustom d -> (#poke Clay_RenderCommand, renderData) ptr d
       _ -> pure ()
 
-
-type ClayRenderCommandArray = ClayArray ClayRenderCommand
-
 newtype ClayPointerDataInteractionState = ClayPointerDataInteractionState CUChar
 
 clayPointerDataPressedThisFrame :: ClayPointerDataInteractionState
@@ -1193,10 +1176,30 @@ clayPointerDataReleasedThisFrame = ClayPointerDataInteractionState 2
 clayPointerDataReleased :: ClayPointerDataInteractionState
 clayPointerDataReleased = ClayPointerDataInteractionState 3
 
+instance Storable ClayPointerDataInteractionState where
+  sizeOf _ = (#size uint8_t)
+  alignment _ = (#alignment uint8_t)
+  peek ptr = do
+    val <- peek (castPtr ptr) :: IO CUChar 
+    pure $ (ClayPointerDataInteractionState val)
+  poke ptr (ClayPointerDataInteractionState i) = poke (castPtr ptr) i
+
 data ClayPointerData = ClayPointerData {
   clayPointerDataPosition :: ClayVector2,
   clayPointerDataState :: ClayPointerDataInteractionState
 }
+
+instance Storable ClayPointerData where
+  sizeOf _ = (#size Clay_PointerData)
+  alignment _ = (#alignment Clay_PointerData)
+  peek ptr = do
+    f1 <- (#peek Clay_PointerData, position) ptr
+    f2 <- (#peek Clay_PointerData, state) ptr
+    pure $ ClayPointerData f1 f2
+  
+  poke ptr (ClayPointerData f1 f2) = do
+    (#poke Clay_PointerData, position) ptr f1
+    (#poke Clay_PointerData, state) ptr f2
 
 data ClayElementDeclaration = ClayElementDeclaration {
   clayElementDeclarationId :: ClayElementId,
@@ -1245,6 +1248,18 @@ data ClayErrorHandler = ClayErrorHandler {
   clayErrorHandlerErrorHandlerFunction :: FunPtr ClayErrorHandlerFunction,
   clayErrorHandlerUserData :: Ptr ()
 }
+
+instance Storable ClayErrorHandler where
+  sizeOf _ = (#size Clay_ErrorHandler)
+  alignment _ = (#alignment Clay_ErrorHandler)
+  peek ptr = do
+    f1 <- (#peek Clay_ErrorHandler, errorHandlerFunction) ptr
+    f2 <- (#peek Clay_ErrorHandler, userData) ptr
+    pure $ ClayErrorHandler f1 f2
+  
+  poke ptr (ClayErrorHandler f1 f2) = do
+    (#poke Clay_ErrorHandler, errorHandlerFunction) ptr f1
+    (#poke Clay_ErrorHandler, userData) ptr f2
 
 type ClayErrorHandlerFunctionPtr = (Ptr ClayErrorData) -> IO ()
 
@@ -1534,3 +1549,378 @@ instance Storable ClayLayoutElementWithText where
     i <- (#peek Clay_LayoutElement, id) ptr
     pure $ ClayLayoutElementWithText $ ClayLayoutElement c d m l e i
   poke ptr (ClayLayoutElementWithText l) = pokeClayLayoutElement (castPtr ptr) l
+
+data ClayScrollContainerDataInternal = ClayScrollContainerDataInternal {
+  clayScrollContainerDataInternalLayoutElement :: ClayLayoutElementWithChildren,
+  clayScrollContainerDataInternalBoundingBox :: ClayBoundingBox, 
+  clayScrollContainerDataInternalContentSize :: ClayDimensions,
+  clayScrollContainerDataInternalScrollOrigin :: ClayVector2,
+  clayScrollContainerDataInternalPointerOrigin :: ClayVector2,
+  clayScrollContainerDataInternalScrollMomentum :: ClayVector2, 
+  clayScrollContainerDataInternalScrollPosition :: ClayVector2,
+  clayScrollContainerDataInternalPreviousDelta :: ClayVector2,
+  clayScrollContainerDataInternalMomentumTime :: CFloat,
+  clayScrollContainerDataInternalElementId :: CInt,
+  clayScrollContainerDataInternalOpenThisFrame :: CBool, 
+  clayScrollContainerDataInternalPointerScrollActive :: CBool
+}
+
+instance Storable ClayScrollContainerDataInternal where
+  sizeOf _ = (#size Clay__ScrollContainerDataInternal)
+  alignment _ = (#alignment Clay__ScrollContainerDataInternal)
+  peek ptr = do
+    f1 <- (#peek Clay__ScrollContainerDataInternal, layoutElement) ptr
+    f2 <- (#peek Clay__ScrollContainerDataInternal, boundingBox) ptr
+    f3 <- (#peek Clay__ScrollContainerDataInternal, contentSize) ptr
+    f4 <- (#peek Clay__ScrollContainerDataInternal, scrollOrigin) ptr
+    f5 <- (#peek Clay__ScrollContainerDataInternal, pointerOrigin) ptr
+    f6 <- (#peek Clay__ScrollContainerDataInternal, scrollMomentum) ptr
+    f7 <- (#peek Clay__ScrollContainerDataInternal, scrollPosition) ptr
+    f8 <- (#peek Clay__ScrollContainerDataInternal, previousDelta) ptr
+    f9 <- (#peek Clay__ScrollContainerDataInternal, momentumTime) ptr
+    f10 <- (#peek Clay__ScrollContainerDataInternal, elementId) ptr
+    f11 <- (#peek Clay__ScrollContainerDataInternal, openThisFrame) ptr
+    f12 <- (#peek Clay__ScrollContainerDataInternal, pointerScrollActive) ptr
+    pure $ ClayScrollContainerDataInternal f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12
+  poke ptr (ClayScrollContainerDataInternal f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12) = do
+    (#poke Clay__ScrollContainerDataInternal, layoutElement) ptr f1
+    (#poke Clay__ScrollContainerDataInternal, boundingBox) ptr f2
+    (#poke Clay__ScrollContainerDataInternal, contentSize) ptr f3
+    (#poke Clay__ScrollContainerDataInternal, scrollOrigin) ptr f4
+    (#poke Clay__ScrollContainerDataInternal, pointerOrigin) ptr f5
+    (#poke Clay__ScrollContainerDataInternal, scrollMomentum) ptr f6
+    (#poke Clay__ScrollContainerDataInternal, scrollPosition) ptr f7
+    (#poke Clay__ScrollContainerDataInternal, previousDelta) ptr f8
+    (#poke Clay__ScrollContainerDataInternal, momentumTime) ptr f9 
+    (#poke Clay__ScrollContainerDataInternal, elementId) ptr f10
+    (#poke Clay__ScrollContainerDataInternal, openThisFrame) ptr f11
+    (#poke Clay__ScrollContainerDataInternal, pointerScrollActive) ptr f12
+
+data ClayDebugElementData = ClayDebugElementData {
+  clayDebugElementDataCollision :: CBool,
+  clayDebugElementDataCollapsed :: CBool
+}
+
+instance Storable ClayDebugElementData where
+  sizeOf _ = (#size Clay__DebugElementData)
+  alignment _ = (#alignment Clay__DebugElementData)
+  peek ptr = do
+    f1 <- (#peek Clay__DebugElementData, collision) ptr
+    f2 <- (#peek Clay__DebugElementData, collapsed) ptr
+    pure $ ClayDebugElementData f1 f2
+  poke ptr (ClayDebugElementData f1 f2) = do
+    (#poke Clay__DebugElementData, collision) ptr f1
+    (#poke Clay__DebugElementData, collapsed) ptr f2
+
+data ClayLayoutElementHashMapItem = ClayLayoutElementHashMapItem {
+  clayLayoutElementHashMapItemBoundingBox :: ClayBoundingBox,
+  clayLayoutElementHashMapItemElementId :: ClayElementId,
+  clayLayoutElementHashMapItemLayoutElement :: Ptr ClayLayoutElement,
+  clayLayoutElementHashMapItemOnHoverFunction :: FunPtr (ClayElementId -> ClayPointerData -> CIntPtr -> IO ()),
+  clayLayoutElementHashMapItemHoverFunctionUserData :: CIntPtr,
+  clayLayoutElementHashMapItemNextIndex :: CInt,
+  clayLayoutElementHashMapItemGeneration :: CUInt,
+  clayLayoutElementHashMapItemIdAlias :: CUInt,
+  clayLayoutElementHashMapItemDebugData :: Ptr ClayDebugElementData
+}
+
+instance Storable ClayLayoutElementHashMapItem where
+  sizeOf _ = (#size Clay_LayoutElementHashMapItem)
+  alignment _ = (#alignment Clay_LayoutElementHashMapItem)
+  peek ptr = do
+    f1 <- (#peek Clay_LayoutElementHashMapItem, boundingBox) ptr
+    f2 <- (#peek Clay_LayoutElementHashMapItem, elementId) ptr
+    f3 <- (#peek Clay_LayoutElementHashMapItem, layoutElement) ptr
+    f4 <- (#peek Clay_LayoutElementHashMapItem, onHoverFunction) ptr
+    f5 <- (#peek Clay_LayoutElementHashMapItem, hoverFunctionUserData) ptr
+    f6 <- (#peek Clay_LayoutElementHashMapItem, nextIndex) ptr
+    f7 <- (#peek Clay_LayoutElementHashMapItem, generation) ptr
+    f8 <- (#peek Clay_LayoutElementHashMapItem, idAlias) ptr
+    f9 <- (#peek Clay_LayoutElementHashMapItem, debugData) ptr
+    pure $ ClayLayoutElementHashMapItem f1 f2 f3 f4 f5 f6 f7 f8 f9
+  
+  poke ptr (ClayLayoutElementHashMapItem f1 f2 f3 f4 f5 f6 f7 f8 f9) = do
+    (#poke Clay_LayoutElementHashMapItem, boundingBox) ptr f1
+    (#poke Clay_LayoutElementHashMapItem, elementId) ptr f2
+    (#poke Clay_LayoutElementHashMapItem, layoutElement) ptr f3
+    (#poke Clay_LayoutElementHashMapItem, onHoverFunction) ptr f4
+    (#poke Clay_LayoutElementHashMapItem, hoverFunctionUserData) ptr f5
+    (#poke Clay_LayoutElementHashMapItem, nextIndex) ptr f6
+    (#poke Clay_LayoutElementHashMapItem, generation) ptr f7
+    (#poke Clay_LayoutElementHashMapItem, idAlias) ptr f8
+    (#poke Clay_LayoutElementHashMapItem, debugData) ptr f9
+
+data ClayMeasuredWord = ClayMeasuredWord {
+  clayMeasuredWordStartOffset :: CInt,
+  clayMeasuredWordLength :: CInt,
+  clayMeasuredWordWidth :: CFloat,
+  clayMeasuredWordNext :: CInt
+}
+
+instance Storable ClayMeasuredWord where
+  sizeOf _ = (#size Clay__MeasuredWord)
+  alignment _ = (#alignment Clay__MeasuredWord)
+  peek ptr = do
+    f1 <- (#peek Clay__MeasuredWord, startOffset) ptr
+    f2 <- (#peek Clay__MeasuredWord, length) ptr
+    f3 <- (#peek Clay__MeasuredWord, width) ptr
+    f4 <- (#peek Clay__MeasuredWord, next) ptr
+    pure $ ClayMeasuredWord f1 f2 f3 f4
+  
+  poke ptr (ClayMeasuredWord f1 f2 f3 f4) = do
+    (#poke Clay__MeasuredWord, startOffset) ptr f1
+    (#poke Clay__MeasuredWord, length) ptr f2
+    (#poke Clay__MeasuredWord, width) ptr f3
+    (#poke Clay__MeasuredWord, next) ptr f4
+
+data ClayMeasureTextCacheItem = ClayMeasureTextCacheItem {
+  clayMeasureTextCacheItemUnwrappedDimensions :: ClayDimensions,
+  clayMeasureTextCacheItemMeasuredWordsStartIndex :: CInt,
+  clayMeasureTextCacheItemContainsNewlines :: CBool,
+  -- Hash map data
+  clayMeasureTextCacheItemId :: CUInt,
+  clayMeasureTextCacheItemNextIndex :: CInt,
+  clayMeasureTextCacheItemGeneration :: CUInt
+}
+
+instance Storable ClayMeasureTextCacheItem where
+  sizeOf _ = (#size Clay__MeasureTextCacheItem)
+  alignment _ = (#alignment Clay__MeasureTextCacheItem)
+  peek ptr = do
+    f1 <- (#peek Clay__MeasureTextCacheItem, unwrappedDimensions) ptr
+    f2 <- (#peek Clay__MeasureTextCacheItem, measuredWordsStartIndex) ptr
+    f3 <- (#peek Clay__MeasureTextCacheItem, containsNewlines) ptr
+    f4 <- (#peek Clay__MeasureTextCacheItem, id) ptr
+    f5 <- (#peek Clay__MeasureTextCacheItem, nextIndex) ptr
+    f6 <- (#peek Clay__MeasureTextCacheItem, generation) ptr
+    pure $ ClayMeasureTextCacheItem f1 f2 f3 f4 f5 f6
+  
+  poke ptr (ClayMeasureTextCacheItem f1 f2 f3 f4 f5 f6) = do
+    (#poke Clay__MeasureTextCacheItem, unwrappedDimensions) ptr f1
+    (#poke Clay__MeasureTextCacheItem, measuredWordsStartIndex) ptr f2
+    (#poke Clay__MeasureTextCacheItem, containsNewlines) ptr f3
+    (#poke Clay__MeasureTextCacheItem, id) ptr f4
+    (#poke Clay__MeasureTextCacheItem, nextIndex) ptr f5
+    (#poke Clay__MeasureTextCacheItem, generation) ptr f6
+
+data ClayLayoutElementTreeNode = ClayLayoutElementTreeNode {
+  clayLayoutElementTreeNodeLayoutElement :: Ptr ClayLayoutElement,
+  clayLayoutElementTreeNodePosition :: ClayVector2,
+  clayLayoutElementTreeNodeNextChildOffset :: ClayVector2
+}
+
+instance Storable ClayLayoutElementTreeNode where
+  sizeOf _ = (#size Clay__LayoutElementTreeNode)
+  alignment _ = (#alignment Clay__LayoutElementTreeNode)
+  peek ptr = do
+    f1 <- (#peek Clay__LayoutElementTreeNode, layoutElement) ptr
+    f2 <- (#peek Clay__LayoutElementTreeNode, position) ptr
+    f3 <- (#peek Clay__LayoutElementTreeNode, nextChildOffset) ptr
+    pure $ ClayLayoutElementTreeNode f1 f2 f3
+  
+  poke ptr (ClayLayoutElementTreeNode f1 f2 f3) = do
+    (#poke Clay__LayoutElementTreeNode, layoutElement) ptr f1
+    (#poke Clay__LayoutElementTreeNode, position) ptr f2
+    (#poke Clay__LayoutElementTreeNode, nextChildOffset) ptr f3
+
+data ClayLayoutElementTreeRoot = ClayLayoutElementTreeRoot {
+  clayLayoutElementTreeRootLayoutElementIndex :: CInt,
+  clayLayoutElementTreeRootParentId :: CUInt,
+  clayLayoutElementTreeRootClipElementId :: CUInt,
+  clayLayoutElementTreeRootZIndex :: CShort,
+  clayLayoutElementTreeRootPointerOffset :: ClayVector2
+}
+
+instance Storable ClayLayoutElementTreeRoot where
+  sizeOf _ = (#size Clay__LayoutElementTreeRoot)
+  alignment _ = (#alignment Clay__LayoutElementTreeRoot)
+  peek ptr = do
+    f1 <- (#peek Clay__LayoutElementTreeRoot, layoutElementIndex) ptr
+    f2 <- (#peek Clay__LayoutElementTreeRoot, parentId) ptr
+    f3 <- (#peek Clay__LayoutElementTreeRoot, clipElementId) ptr
+    f4 <- (#peek Clay__LayoutElementTreeRoot, zIndex) ptr
+    f5 <- (#peek Clay__LayoutElementTreeRoot, pointerOffset) ptr
+    pure $ ClayLayoutElementTreeRoot f1 f2 f3 f4 f5
+  
+  poke ptr (ClayLayoutElementTreeRoot f1 f2 f3 f4 f5) = do
+    (#poke Clay__LayoutElementTreeRoot, layoutElementIndex) ptr f1
+    (#poke Clay__LayoutElementTreeRoot, parentId) ptr f2
+    (#poke Clay__LayoutElementTreeRoot, clipElementId) ptr f3
+    (#poke Clay__LayoutElementTreeRoot, zIndex) ptr f4
+    (#poke Clay__LayoutElementTreeRoot, pointerOffset) ptr f5
+
+data ClayContext = ClayContext {
+  clayContextMaxElementCount :: CInt,
+  clayContextMaxMeasureTextCacheWordCount :: CInt,
+  clayContextWarningsEnabled :: CBool,
+  clayContextErrorHandler :: ClayErrorHandler,
+  clayContextBooleanWarnings :: ClayBooleanWarnings,
+  clayContextWarnings :: ClayArray ClayWarning,
+  clayContextPointerInfo :: ClayPointerData,
+  clayContextLayoutDimensions :: ClayDimensions,
+  clayContextDynamicElementIndexBaseHash :: ClayElementId,
+  clayContextDynamicElementIndex :: CUInt,
+  clayContextDebugModeEnabled :: CBool,
+  clayContextDisableCulling :: CBool,
+  clayContextExternalScrollHandlingEnabled :: CBool,
+  clayContextDebugSelectedElementId :: CUInt,
+  clayContextGeneration :: CUInt,
+  clayContextArenaResetOffset :: CUIntPtr,
+  clayContextMeasureTextUserData :: Ptr (),
+  clayContextQueryScrollOffsetUserData :: Ptr (),
+  clayContextInternalArena :: ClayArena,
+  -- Layout Elements / Render Commands
+  clayContextLayoutElements :: ClayArray ClayLayoutElement,
+  clayContextRenderCommands :: ClayArray ClayRenderCommand,
+  clayContextOpenLayoutElementStack :: ClayArray CInt,
+  clayContextLayoutElementChildren :: ClayArray CInt,
+  clayContextLayoutElementChildrenBuffer :: ClayArray CInt,
+  clayContextTextElementDataArray :: ClayArray ClayTextElementData,
+  clayContextImageElementPointers :: ClayArray CInt,
+  clayContextReusableElementIndexBuffer :: ClayArray CInt,
+  clayContextLayoutElementClipElementIds :: ClayArray CInt,
+  -- Configs
+  clayContextLayoutConfigs :: ClayArray ClayLayoutConfig,
+  clayContextElementConfigs :: ClayArray ClayElementConfig,
+  clayContextTextElementConfigs :: ClayArray ClayTextElementConfig,
+  clayContextImageElementConfigs :: ClayArray ClayImageElementConfig,
+  clayContextFloatingElementConfigs :: ClayArray ClayFloatingElementConfig,
+  clayContextScrollElementConfigs :: ClayArray ClayScrollElementConfig,
+  clayContextCustomElementConfigs :: ClayArray ClayCustomElementConfig,
+  clayContextBorderElementConfigs :: ClayArray ClayBorderElementConfig,
+  clayContextSharedElementConfigs :: ClayArray ClaySharedElementConfig,
+  -- Misc Data Structures
+  clayContextLayoutElementIdStrings :: ClayArray ClayString,
+  clayContextWrappedTextLines :: ClayArray ClayWrappedTextLine,
+  clayContextLayoutElementTreeNodeArray1 :: ClayArray ClayLayoutElementTreeNode,
+  clayContextLayoutElementTreeRoots :: ClayArray ClayLayoutElementTreeRoot,
+  clayContextLayoutElementsHashMapInternal :: ClayArray ClayLayoutElementHashMapItem,
+  clayContextLayoutElementsHashMap :: ClayArray CInt,
+  clayContextMeasureTextHashMapInternal :: ClayArray ClayMeasureTextCacheItem,
+  clayContextMeasureTextHashMapInternalFreeList :: ClayArray CInt,
+  clayContextMeasaureTextHashMap :: ClayArray CInt,
+  clayContextMeasuredWords :: ClayArray ClayMeasuredWord,
+  clayContextMeasureWordsFreeList :: ClayArray CInt,
+  clayContextOpenClipElementStack :: ClayArray CInt,
+  clayContextPointerOverIds :: ClayArray ClayElementId,
+  clayContextScrollContainerDatas :: ClayArray ClayScrollContainerDataInternal,
+  clayContextTreeNodeVisited :: ClayArray CBool,
+  clayContextDynamicStringData :: ClayArray CChar,
+  clayContextDebugElementData :: ClayArray ClayDebugElementData
+}
+
+instance Storable ClayContext where
+  sizeOf _ = (#size Clay_Context)
+  alignment _ = (#alignment Clay_Context)
+  peek ptr = do
+    f1 <- (#peek Clay_Context, maxElementCount) ptr
+    f2 <- (#peek Clay_Context, maxMeasureTextCacheWordCount) ptr
+    f3 <- (#peek Clay_Context, warningsEnabled) ptr
+    f4 <- (#peek Clay_Context, errorHandler) ptr
+    f5 <- (#peek Clay_Context, booleanWarnings) ptr
+    f6 <- (#peek Clay_Context, warnings) ptr
+    f7 <- (#peek Clay_Context, pointerInfo) ptr
+    f8 <- (#peek Clay_Context, layoutDimensions) ptr
+    f9 <- (#peek Clay_Context, dynamicElementIndexBaseHash) ptr
+    f10 <- (#peek Clay_Context, dynamicElementIndex) ptr
+    f11 <- (#peek Clay_Context, debugModeEnabled) ptr
+    f12 <- (#peek Clay_Context, disableCulling) ptr
+    f13 <- (#peek Clay_Context, externalScrollHandlingEnabled) ptr
+    f14 <- (#peek Clay_Context, debugSelectedElementId) ptr
+    f15 <- (#peek Clay_Context, generation) ptr
+    f16 <- (#peek Clay_Context, arenaResetOffset) ptr
+    f17 <- (#peek Clay_Context, measureTextUserData) ptr
+    f18 <- (#peek Clay_Context, queryScrollOffsetUserData) ptr
+    f19 <- (#peek Clay_Context, internalArena) ptr
+    f20 <- (#peek Clay_Context, layoutElements) ptr
+    f21 <- (#peek Clay_Context, renderCommands) ptr
+    f22 <- (#peek Clay_Context, openLayoutElementStack) ptr
+    f23 <- (#peek Clay_Context, layoutElementChildren) ptr
+    f24 <- (#peek Clay_Context, layoutElementChildrenBuffer) ptr
+    f25 <- (#peek Clay_Context, textElementData) ptr
+    f26 <- (#peek Clay_Context, imageElementPointers) ptr
+    f27 <- (#peek Clay_Context, reusableElementIndexBuffer) ptr
+    f28 <- (#peek Clay_Context, layoutElementClipElementIds) ptr
+    f29 <- (#peek Clay_Context, layoutConfigs) ptr
+    f30 <- (#peek Clay_Context, elementConfigs) ptr
+    f31 <- (#peek Clay_Context, textElementConfigs) ptr
+    f32 <- (#peek Clay_Context, imageElementConfigs) ptr
+    f33 <- (#peek Clay_Context, floatingElementConfigs) ptr
+    f34 <- (#peek Clay_Context, scrollElementConfigs) ptr
+    f35 <- (#peek Clay_Context, customElementConfigs) ptr
+    f36 <- (#peek Clay_Context, borderElementConfigs) ptr
+    f37 <- (#peek Clay_Context, sharedElementConfigs) ptr
+    f38 <- (#peek Clay_Context, layoutElementIdStrings) ptr
+    f39 <- (#peek Clay_Context, wrappedTextLines) ptr
+    f40 <- (#peek Clay_Context, layoutElementTreeNodeArray1) ptr
+    f41 <- (#peek Clay_Context, layoutElementTreeRoots) ptr
+    f42 <- (#peek Clay_Context, layoutElementsHashMapInternal) ptr
+    f43 <- (#peek Clay_Context, layoutElementsHashMap) ptr
+    f44 <- (#peek Clay_Context, measureTextHashMapInternal) ptr
+    f45 <- (#peek Clay_Context, measureTextHashMapInternalFreeList) ptr
+    f46 <- (#peek Clay_Context, measureTextHashMap) ptr
+    f47 <- (#peek Clay_Context, measuredWords) ptr
+    f48 <- (#peek Clay_Context, measuredWordsFreeList) ptr
+    f49 <- (#peek Clay_Context, openClipElementStack) ptr
+    f50 <- (#peek Clay_Context, pointerOverIds) ptr
+    f51 <- (#peek Clay_Context, scrollContainerDatas) ptr
+    f52 <- (#peek Clay_Context, treeNodeVisited) ptr
+    f53 <- (#peek Clay_Context, dynamicStringData) ptr
+    f54 <- (#peek Clay_Context, debugElementData) ptr
+    pure $ ClayContext f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50 f51 f52 f53 f54
+  
+  poke ptr (ClayContext f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50 f51 f52 f53 f54) = do
+    (#poke Clay_Context, maxElementCount) ptr f1
+    (#poke Clay_Context, maxMeasureTextCacheWordCount) ptr f2
+    (#poke Clay_Context, warningsEnabled) ptr f3
+    (#poke Clay_Context, errorHandler) ptr f4
+    (#poke Clay_Context, booleanWarnings) ptr f5
+    (#poke Clay_Context, warnings) ptr f6
+    (#poke Clay_Context, pointerInfo) ptr f7
+    (#poke Clay_Context, layoutDimensions) ptr f8
+    (#poke Clay_Context, dynamicElementIndexBaseHash) ptr f9
+    (#poke Clay_Context, dynamicElementIndex) ptr f10
+    (#poke Clay_Context, debugModeEnabled) ptr f11
+    (#poke Clay_Context, disableCulling) ptr f12
+    (#poke Clay_Context, externalScrollHandlingEnabled) ptr f13
+    (#poke Clay_Context, debugSelectedElementId) ptr f14
+    (#poke Clay_Context, generation) ptr f15
+    (#poke Clay_Context, arenaResetOffset) ptr f16
+    (#poke Clay_Context, measureTextUserData) ptr f17
+    (#poke Clay_Context, queryScrollOffsetUserData) ptr f18
+    (#poke Clay_Context, internalArena) ptr f19
+    (#poke Clay_Context, layoutElements) ptr f20
+    (#poke Clay_Context, renderCommands) ptr f21
+    (#poke Clay_Context, openLayoutElementStack) ptr f22
+    (#poke Clay_Context, layoutElementChildren) ptr f23
+    (#poke Clay_Context, layoutElementChildrenBuffer) ptr f24
+    (#poke Clay_Context, textElementData) ptr f25
+    (#poke Clay_Context, imageElementPointers) ptr f26
+    (#poke Clay_Context, reusableElementIndexBuffer) ptr f27
+    (#poke Clay_Context, layoutElementClipElementIds) ptr f28
+    (#poke Clay_Context, layoutConfigs) ptr f29
+    (#poke Clay_Context, elementConfigs) ptr f30
+    (#poke Clay_Context, textElementConfigs) ptr f31
+    (#poke Clay_Context, imageElementConfigs) ptr f32
+    (#poke Clay_Context, floatingElementConfigs) ptr f33
+    (#poke Clay_Context, scrollElementConfigs) ptr f34
+    (#poke Clay_Context, customElementConfigs) ptr f35
+    (#poke Clay_Context, borderElementConfigs) ptr f36
+    (#poke Clay_Context, sharedElementConfigs) ptr f37
+    (#poke Clay_Context, layoutElementIdStrings) ptr f38
+    (#poke Clay_Context, wrappedTextLines) ptr f39
+    (#poke Clay_Context, layoutElementTreeNodeArray1) ptr f40
+    (#poke Clay_Context, layoutElementTreeRoots) ptr f41
+    (#poke Clay_Context, layoutElementsHashMapInternal) ptr f42
+    (#poke Clay_Context, layoutElementsHashMap) ptr f43
+    (#poke Clay_Context, measureTextHashMapInternal) ptr f44
+    (#poke Clay_Context, measureTextHashMapInternalFreeList) ptr f45
+    (#poke Clay_Context, measureTextHashMap) ptr f46
+    (#poke Clay_Context, measuredWords) ptr f47
+    (#poke Clay_Context, measuredWordsFreeList) ptr f48
+    (#poke Clay_Context, openClipElementStack) ptr f49
+    (#poke Clay_Context, pointerOverIds) ptr f50
+    (#poke Clay_Context, scrollContainerDatas) ptr f51
+    (#poke Clay_Context, treeNodeVisited) ptr f52
+    (#poke Clay_Context, dynamicStringData) ptr f53
+    (#poke Clay_Context, debugElementData) ptr f54
