@@ -17,16 +17,18 @@ module Clay.Raw.Types where
 
 import Foreign
 import Foreign.C
+import Foreign.Extra
 
 
 -- * Utility Structs
 
 -- | Note: Clay_String is not guaranteed to be null terminated. It may be if created from a literal C string, -- but it is also used to represent slices.
+-- The Eq instance for this will compare length and the pointer value, not the underlying string.
 data ClayString = ClayString
   { clayStringLength :: CInt,
     -- | The underlying character memory. Note: this will not be copied and will not extend the lifetime of the underlying memory.
     clayStringChars :: Ptr CChar
-  }
+  } deriving (Eq, Show)
   
 
 instance Storable ClayString where
@@ -46,7 +48,7 @@ data ClayStringSlice = ClayStringSlice
     clayStringSliceChars :: Ptr CChar,
     -- | The source string / char* that this slice was derived from
     clayStringSliceBaseChars :: Ptr CChar
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayStringSlice where
   sizeOf _ = (#size Clay_StringSlice)
@@ -123,7 +125,7 @@ instance Storable ClayArena where
 data ClayDimensions = ClayDimensions
   { clayDimensionsWidth :: CFloat,
     clayDimensionsHeight :: CFloat
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayDimensions where
   sizeOf _ = (#size Clay_Dimensions)
@@ -138,7 +140,7 @@ instance Storable ClayDimensions where
 data ClayVector2 = ClayVector2
   { clayVector2X :: CFloat,
     clayVector2Y :: CFloat
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayVector2 where
   sizeOf _ = (#size Clay_Vector2)
@@ -156,7 +158,7 @@ data ClayColor = ClayColor
     clayColorG :: CFloat,
     clayColorB :: CFloat,
     clayColorA :: CFloat
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayColor where
   sizeOf _ = (#size Clay_Color)
@@ -177,7 +179,7 @@ data ClayBoundingBox = ClayBoundingBox
     clayBoundingBoxY :: CFloat,
     clayBoundingBoxWidth :: CFloat,
     clayBoundingBoxHeight :: CFloat
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayBoundingBox where
   sizeOf _ = (#size Clay_BoundingBox)
@@ -228,7 +230,7 @@ data ClayCornerRadius = ClayCornerRadius
     clayCornerRadiusTopRight :: CFloat,
     clayCornerRadiusBottomLeft :: CFloat,
     clayCornerRadiusBottomRight :: CFloat
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayCornerRadius where
   sizeOf _ = (#size Clay_CornerRadius)
@@ -247,7 +249,7 @@ instance Storable ClayCornerRadius where
 -- * Element Configs
 
 -- | Controls the direction in which child elements will be automatically laid out.
-data ClayLayoutDirection = ClayLayoutDirection CUChar
+data ClayLayoutDirection = ClayLayoutDirection CUChar deriving (Eq, Show)   
 
 -- | (Default) Lays out child elements from left to right with increasing x.
 clayLeftToRight :: ClayLayoutDirection
@@ -273,7 +275,7 @@ instance Storable ClayLayoutDirection where
   poke ptr (ClayLayoutDirection d) = poke (castPtr ptr) d 
 
 -- | Controls the alignment along the x axis (horizontal) of child elements.
-newtype ClayLayoutAlignmentX = ClayLayoutAlignmentX CUChar
+newtype ClayLayoutAlignmentX = ClayLayoutAlignmentX CUChar deriving (Eq, Show)
 
 -- | (Default) Aligns child elements to the left hand side of this element, offset by padding.width.left
 clayAlignXLeft :: ClayLayoutAlignmentX
@@ -319,7 +321,7 @@ instance Storable ClayLayoutAlignmentY where
   poke ptr (ClayLayoutAlignmentY a) = poke (castPtr ptr) a
 
 -- | Controls how the element takes up space inside its parent container.
-newtype ClaySizingType = ClaySizingType CUChar
+newtype ClaySizingType = ClaySizingType CUChar deriving (Eq, Show)
 
 -- | (default) Wraps tightly to the size of the element's contents.
 claySizingTypeFit :: ClaySizingType
@@ -351,7 +353,7 @@ data ClayChildAlignment = ClayChildAlignment
     clayChildAlignmentX :: ClayLayoutAlignmentX,
     -- | Controls alignment of children along the y axis.
     clayChildAlignmentY :: ClayLayoutAlignmentY
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayChildAlignment where
   sizeOf _ = (#size Clay_ChildAlignment)
@@ -370,7 +372,7 @@ data ClaySizingMinMax = ClaySizingMinMax
     claySizingMinMaxMin :: CFloat,
     -- | The largest final size of the element on this axis will be this value in pixels.
     claySizingMinMaxMax :: CFloat
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClaySizingMinMax where
   sizeOf _ = #{size Clay_SizingMinMax}
@@ -387,7 +389,7 @@ data ClaySizingAxis = ClaySizingAxis
   { claySizingAxisSize :: Either ClaySizingMinMax CFloat,
     -- | Controls how the element takes up space inside its parent container.
     claySizingAxisType :: ClaySizingType
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClaySizingAxis where
   sizeOf _ = #{size Clay_SizingAxis}
@@ -410,7 +412,7 @@ data ClaySizing = ClaySizing
     claySizingWidth :: ClaySizingAxis,
     -- | Controls the height sizing of the element, along the y axis.
     claySizingHeight :: ClaySizingAxis
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClaySizing where
   sizeOf _ = #{size Clay_Sizing}
@@ -429,7 +431,7 @@ data ClayPadding = ClayPadding
     clayPaddingRight :: Word16,
     clayPaddingTop :: Word16,
     clayPaddingBottom :: Word16
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayPadding where
   sizeOf _ = #{size Clay_Padding}
@@ -458,7 +460,7 @@ data ClayLayoutConfig = ClayLayoutConfig
     clayLayoutConfigChildAlignment :: ClayChildAlignment,
     -- | Controls the direction in which child elements will be automatically laid out.
     clayLayoutConfigLayoutDirection :: ClayLayoutDirection
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayLayoutConfig where
   sizeOf _ = #{size Clay_LayoutConfig}
@@ -477,7 +479,7 @@ instance Storable ClayLayoutConfig where
     #{poke Clay_LayoutConfig, layoutDirection} ptr ld
 
 -- | Controls how text "wraps", that is how it is broken into multiple lines when there is insufficient horizontal space.
-newtype ClayTextElementConfigWrapMode = ClayTextElementConfigWrapMode CUChar
+newtype ClayTextElementConfigWrapMode = ClayTextElementConfigWrapMode CUChar deriving (Eq, Show)
 
 -- | (default) breaks on whitespace characters.
 clayTextWrapWords :: ClayTextElementConfigWrapMode 
@@ -563,7 +565,7 @@ data ClayTextElementConfig = ClayTextElementConfig
     -- | text measurement cache, rather than just the pointer and length. This will incur significant performance cost for
     -- | long bodies of text.
     clayTextElementConfigHashStringContents :: Bool
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayTextElementConfig where
   sizeOf _ = #{size Clay_TextElementConfig}
@@ -597,7 +599,7 @@ data ClayImageElementConfig = ClayImageElementConfig {
   clayImageElementConfigImageData :: Ptr (),
   -- | The original dimensions of the source image, used to control aspect ratio.
   clayImageElementConfigSourceDimensions :: ClayDimensions
-}
+} deriving (Eq, Show)
 
 instance Storable ClayImageElementConfig where
   sizeOf _ = #{size Clay_ImageElementConfig}
@@ -640,7 +642,7 @@ data ClayFloatingAttachPoints = ClayFloatingAttachPoints {
   clayFloatingAttachPointsElement :: ClayFloatingAttachPointType,
   -- | Controls the origin point on the parent element that the floating element attaches to.
   clayFloatingAttachPointsParent :: ClayFloatingAttachPointType
-}
+} deriving (Eq, Show)
 
 instance Storable ClayFloatingAttachPoints where
   sizeOf _ = (#size Clay_FloatingAttachPoints)
@@ -655,7 +657,7 @@ instance Storable ClayFloatingAttachPoints where
 
 -- | Controls how mouse pointer events like hover and click are captured or passed 
 -- through to elements underneath a floating element.
-newtype ClayPointerCaptureMode = ClayPointerCaptureMode CUChar
+newtype ClayPointerCaptureMode = ClayPointerCaptureMode CUChar deriving (Eq, Show)
 
 -- | (default) "Capture" the pointer event and don't allow events like hover and click to pass through to elements underneath.
 clayPointerCaptureModeCapture :: ClayPointerCaptureMode
@@ -680,7 +682,7 @@ instance Storable ClayPointerCaptureMode where
   poke ptr (ClayPointerCaptureMode i) = poke (castPtr ptr) i
 
 -- | Controls which element a floating element is "attached" to (i.e. relative offset from).
-newtype ClayFloatingAttachToElement = ClayFloatingAttachToElement CUChar
+newtype ClayFloatingAttachToElement = ClayFloatingAttachToElement CUChar deriving (Eq, Show)
 
 -- | (default) Disables floating for this element.
 clayAttachToNone :: ClayFloatingAttachToElement
@@ -746,7 +748,7 @@ data ClayFloatingElementConfig = ClayFloatingElementConfig {
   -- CLAY_ATTACH_TO_ELEMENT_WITH_ID - Attaches this floating element to an element with a specific ID, specified with the .parentId field. positioned based on the .attachPoints and .offset fields.
   -- CLAY_ATTACH_TO_ROOT - Attaches this floating element to the root of the layout, which combined with the .offset field provides functionality similar to "absolute positioning".
   clayFloatingElementConfigAttachTo :: ClayFloatingAttachToElement
-}
+} deriving (Eq, Show)
 
 instance Storable ClayFloatingElementConfig where
   sizeOf _ = (#size Clay_FloatingElementConfig)
@@ -776,7 +778,7 @@ data ClayCustomElementConfig = ClayCustomElementConfig {
   -- | A transparent pointer through which you can pass custom data to the renderer.
   -- Generates CUSTOM render commands.
   clayCustomElementConfigCustomData :: Ptr ()
-}
+} deriving (Eq, Show)
 
 instance Storable ClayCustomElementConfig where
   sizeOf _ = (#size Clay_CustomElementConfig)
@@ -795,7 +797,7 @@ data ClayScrollElementConfig = ClayScrollElementConfig {
   clayScrollElementConfigHorizontal :: CBool,
   -- | Clip overflowing elements on the YU axis and allow scrolling up and down.
   clayScrollElementConfigVertical :: CBool
-}
+} deriving (Eq, Show)
 
 instance Storable ClayScrollElementConfig where
   sizeOf _ = (#size Clay_ScrollElementConfig)
@@ -820,7 +822,7 @@ data ClayBorderWidth = ClayBorderWidth {
   -- e.g. for LEFT_TO_RIGHT, borders will be vertical lines, and for TOP_TO_BOTTOM borders will be horizontal lines.
   -- .betweenChildren borders will result in individual RECTANGLE render commands being generated.
   clayBorderWidthBetweenChildren :: CUShort
-}
+} deriving (Eq, Show)
 
 instance Storable ClayBorderWidth where
   sizeOf _ = (#size Clay_BorderWidth)
@@ -845,7 +847,7 @@ data ClayBorderElementConfig = ClayBorderElementConfig {
   clayBorderElementConfigColor :: ClayColor,
   -- | Controls the widths of individual borders. At least one of these should be > 0 for a BORDER render command to be generated.
   clayBorderElementConfigWidth :: ClayBorderWidth
-}
+} deriving (Eq, Show)
 
 instance Storable ClayBorderElementConfig where
   sizeOf _ = (#size Clay_BorderElementConfig)
@@ -874,7 +876,7 @@ data ClayTextRenderData = ClayTextRenderData {
   clayTextRenderDataLetterSpacing :: CUShort,
   -- The height of the bounding box for this line of text.
   clayTextRenderDataLineHeight :: CUShort
-}
+} deriving (Eq, Show)
 
 instance Storable ClayTextRenderData where
   sizeOf _ = (#size Clay_TextRenderData)
@@ -902,7 +904,7 @@ data ClayRectangleRenderData = ClayRectangleRenderData {
   -- | Controls the "radius", or corner rounding of elements, including rectangles, borders and images.
   -- The rounding is determined by drawing a circle inset into the element corner by (radius, radius) pixels.
   clayRectangleRenderDataCornerRadius :: ClayCornerRadius
-}
+} deriving (Eq, Show)
 
 instance Storable ClayRectangleRenderData where
   sizeOf _ = (#size Clay_RectangleRenderData)
@@ -928,7 +930,7 @@ data ClayImageRenderData = ClayImageRenderData {
   clayImageRenderDataSourceDimensions :: ClayDimensions,
   -- | A pointer transparently passed through from the original element definition, typically used to represent image data.
   clayImageRenderDataImageData :: Ptr ()
-}
+} deriving (Eq, Show)
 
 instance Storable ClayImageRenderData where
   sizeOf _ = (#size Clay_ImageRenderData)
@@ -949,7 +951,7 @@ data ClayCustomRenderData = ClayCustomRenderData {
   clayCustomRenderDataBackgroundColor :: ClayColor,
   clayCustomRenderDataCornerRadius :: ClayCornerRadius,
   clayCustomRenderDataCustomData :: Ptr ()
-}
+} deriving (Eq, Show)
 
 instance Storable ClayCustomRenderData where
   sizeOf _ = (#size Clay_CustomRenderData)
@@ -967,7 +969,7 @@ instance Storable ClayCustomRenderData where
 data ClayScrollRenderData = ClayScrollRenderData {
   clayScrollRenderDataHorizontal :: CBool,
   clayScrollRenderDataVertical :: CBool
-}
+} deriving (Eq, Show)
 
 instance Storable ClayScrollRenderData where
   sizeOf _ = (#size Clay_ScrollRenderData)
@@ -984,7 +986,7 @@ data ClayBorderRenderData = ClayBorderRenderData {
   clayBorderRenderDataColor :: ClayColor,
   clayBorderRenderDataCornerRadius :: ClayCornerRadius,
   clayBorderRenderDataWidth :: ClayBorderWidth
-}
+} deriving (Eq, Show)
 
 instance Storable ClayBorderRenderData where
   sizeOf _ = (#size Clay_BorderRenderData)
@@ -1006,7 +1008,7 @@ data ClayRenderData
   | ClayRenderDataCustom ClayCustomRenderData
   | ClayRenderDataBorder ClayBorderRenderData
   | ClayRenderDataScroll ClayScrollRenderData
-  | ClayRenderDataNone
+  | ClayRenderDataNone deriving (Eq, Show)
 
 -- * Miscellaneous Stucts & Enums
 
@@ -1016,7 +1018,7 @@ data ClayScrollContainerData = ClayScrollContainerData {
   clayScrollContianerDataContentDimensions :: ClayDimensions,
   clayScrollContainerDataConfig :: ClayScrollElementConfig,
   clayScrollContainerDataFound :: CBool
-}
+} deriving (Eq, Show)
 
 instance Storable ClayScrollContainerData where
   sizeOf _ = (#size Clay_ScrollContainerData)
@@ -1039,7 +1041,7 @@ instance Storable ClayScrollContainerData where
 data ClayElementData = ClayElementData {
   clayElementDataBoundingBox :: ClayBoundingBox,
   clayElementDataFound :: CBool
-}
+} deriving (Eq, Show)
 
 instance Storable ClayElementData where
   sizeOf _ = (#size Clay_ElementData)
@@ -1052,7 +1054,7 @@ instance Storable ClayElementData where
     (#poke Clay_ElementData, boundingBox) ptr box
     (#poke Clay_ElementData, found) ptr fnd
 
-newtype ClayRenderCommandType = ClayRenderCommandType CUChar
+newtype ClayRenderCommandType = ClayRenderCommandType CUChar deriving (Eq, Show)
 
 clayRenderCommandTypeNone :: ClayRenderCommandType
 clayRenderCommandTypeNone = ClayRenderCommandType 0
@@ -1117,7 +1119,7 @@ data ClayRenderCommand = ClayRenderCommand {
   clayRenderCommandId :: CUInt,
   clayRenderCommandZIndex :: CShort,
   clayRenderCommandCommandType :: ClayRenderCommandType
-}
+} deriving (Eq, Show)
 
 instance Storable ClayRenderCommand where
   sizeOf _ = (#size Clay_RenderCommand)
@@ -1131,19 +1133,19 @@ instance Storable ClayRenderCommand where
 
     ren <- case typ of
       ClayRenderCommandTypeRectangle -> 
-          ClayRenderDataRectangle <$> (#peek Clay_RenderCommand, commandType) ptr
+          ClayRenderDataRectangle <$> (#peek Clay_RenderCommand, renderData.rectangle) ptr
       ClayRenderCommandTypeBorder -> 
-          ClayRenderDataBorder <$> (#peek Clay_RenderCommand, commandType) ptr
+          ClayRenderDataBorder <$> (#peek Clay_RenderCommand, renderData.border) ptr
       ClayRenderCommandTypeText -> 
-          ClayRenderDataText <$> (#peek Clay_RenderCommand, commandType) ptr
+          ClayRenderDataText <$> (#peek Clay_RenderCommand, renderData.text) ptr
       ClayRenderCommandTypeImage -> 
-          ClayRenderDataImage <$> (#peek Clay_RenderCommand, commandType) ptr
+          ClayRenderDataImage <$> (#peek Clay_RenderCommand, renderData.image) ptr
       ClayRenderCommandTypeScissorStart -> 
-          ClayRenderDataScroll <$> (#peek Clay_RenderCommand, commandType) ptr
+          ClayRenderDataScroll <$> (#peek Clay_RenderCommand, renderData.scroll) ptr
       ClayRenderCommandTypeScissorEnd -> 
-          ClayRenderDataScroll <$> (#peek Clay_RenderCommand, commandType) ptr
+          ClayRenderDataScroll <$> (#peek Clay_RenderCommand, renderData.scroll) ptr
       ClayRenderCommandTypeCustom -> 
-          ClayRenderDataCustom <$> (#peek Clay_RenderCommand, commandType) ptr
+          ClayRenderDataCustom <$> (#peek Clay_RenderCommand, renderData.custom) ptr
       ClayRenderCommandType _ -> pure ClayRenderDataNone
     
     pure $ ClayRenderCommand box ren dat ide zid typ
@@ -1204,14 +1206,62 @@ instance Storable ClayPointerData where
 data ClayElementDeclaration = ClayElementDeclaration {
   clayElementDeclarationId :: ClayElementId,
   clayElementDeclarationLayout :: ClayLayoutConfig,
-  clayElementDeclarationBackgroundColor :: ClayColor,
-  clayElementDeclarationCornerRadius :: ClayCornerRadius,
-  clayElementDeclarationImage :: ClayImageElementConfig,
-  clayElementDeclarationFloating :: ClayFloatingElementConfig,
-  clayElementDeclarationCustom :: ClayCustomElementConfig,
-  clayElementDeclarationScroll :: ClayScrollElementConfig,
-  clayElementDeclarationBorder :: ClayBorderElementConfig
+  clayElementDeclarationBackgroundColor :: Maybe ClayColor,
+  clayElementDeclarationCornerRadius :: Maybe ClayCornerRadius,
+  clayElementDeclarationImage :: Maybe ClayImageElementConfig,
+  clayElementDeclarationFloating :: Maybe ClayFloatingElementConfig,
+  clayElementDeclarationCustom :: Maybe ClayCustomElementConfig,
+  clayElementDeclarationScroll :: Maybe ClayScrollElementConfig,
+  clayElementDeclarationBorder :: Maybe ClayBorderElementConfig,
+  clayElementDeclarationUserData :: Ptr ()
 }
+
+-- Clay allows fields on an element declaration to be unset (zero'd)
+-- so we need special handling for our peek/poke
+instance Storable ClayElementDeclaration where
+  sizeOf _ = (#size Clay_ElementDeclaration)
+  alignment _ = (#size Clay_ElementDeclaration)
+  peek ptr = do
+    f1 <- (#peek Clay_ElementDeclaration, id) ptr
+    f2 <- (#peek Clay_ElementDeclaration, layout) ptr
+
+    let bgColorPtr = plusPtr ptr (#offset Clay_ElementDeclaration, backgroundColor)
+    f3 <- peekMaybe bgColorPtr
+    
+    let cornerRadiusPtr = plusPtr ptr (#offset Clay_ElementDeclaration, cornerRadius)
+    f4 <- peekMaybe cornerRadiusPtr
+    
+    let imagePtr = plusPtr ptr (#offset Clay_ElementDeclaration, image)
+    f5 <- peekMaybe imagePtr
+    
+    let floatingPtr = plusPtr ptr (#offset Clay_ElementDeclaration, floating)
+    f6 <- peekMaybe floatingPtr
+    
+    let customPtr = plusPtr ptr (#offset Clay_ElementDeclaration, custom)
+    f7 <- peekMaybe customPtr
+    
+    let scrollPtr = plusPtr ptr (#offset Clay_ElementDeclaration, scroll)
+    f8 <- peekMaybe scrollPtr
+    
+    let borderPtr = plusPtr ptr (#offset Clay_ElementDeclaration, border)
+    f9 <- peekMaybe borderPtr
+
+    f10 <- (#peek Clay_ElementDeclaration, userData) ptr 
+    pure $ ClayElementDeclaration f1 f2 f3 f4 f5 f6 f7 f8 f9 f10
+  poke ptr (ClayElementDeclaration f1 f2 f3 f4 f5 f6 f7 f8 f9 f10) = do
+    zeroMemory ptr (sizeOf (undefined :: ClayElementDeclaration))
+
+    (#poke Clay_ElementDeclaration, id) ptr f1
+    (#poke Clay_ElementDeclaration, layout) ptr f2
+    maybe (pure ()) ((#poke Clay_ElementDeclaration, backgroundColor) ptr) f3
+    maybe (pure ()) ((#poke Clay_ElementDeclaration, cornerRadius) ptr) f4
+    maybe (pure ()) ((#poke Clay_ElementDeclaration, image) ptr) f5
+    maybe (pure ()) ((#poke Clay_ElementDeclaration, floating) ptr) f6
+    maybe (pure ()) ((#poke Clay_ElementDeclaration, custom) ptr) f7
+    maybe (pure ()) ((#poke Clay_ElementDeclaration, scroll) ptr) f8
+    maybe (pure ()) ((#poke Clay_ElementDeclaration, border) ptr) f9
+    (#poke Clay_ElementDeclaration, userData) ptr f10
+
 
 newtype ClayErrorType = ClayErrorType CUChar deriving (Eq, Show)
 
@@ -1236,11 +1286,32 @@ clayErrorTypePercentageOver1 = ClayErrorType 5
 clayErrorTypeInternalError :: ClayErrorType
 clayErrorTypeInternalError = ClayErrorType 6
 
+instance Storable ClayErrorType where
+  sizeOf _ = (#size uint8_t)
+  alignment _ = (#alignment uint8_t)
+  peek ptr = do
+    val <- peek (castPtr ptr) :: IO CUChar 
+    pure $ (ClayErrorType val)
+  poke ptr (ClayErrorType i) = poke (castPtr ptr) i
+
 data ClayErrorData = ClayErrorData {
   clayErrorDataErrorType :: ClayErrorType,
   clayErrorDataErrorText :: ClayString,
   clayErrorDataUserData :: Ptr ()
-}
+} deriving (Eq, Show)
+
+instance Storable ClayErrorData where
+  sizeOf _ = (#size Clay_ErrorData)
+  alignment _ = (#alignment Clay_ErrorData)
+  peek ptr = do
+    f1 <- (#peek Clay_ErrorData, errorType) ptr
+    f2 <- (#peek Clay_ErrorData, errorText) ptr
+    f3 <- (#peek Clay_ErrorData, userData) ptr
+    pure $ ClayErrorData f1 f2 f3
+  poke ptr (ClayErrorData f1 f2 f3) = do
+    (#poke Clay_ErrorData, errorType) ptr f1
+    (#poke Clay_ErrorData, errorText) ptr f2
+    (#poke Clay_ErrorData, userData) ptr f3
 
 type ClayErrorHandlerFunction = ClayErrorData -> IO ()
 

@@ -61,3 +61,9 @@ Clay_ElementData* ClayHelper_GetElementData(Clay_ElementId* id) {
     *ptr = Clay_GetElementData(*id);
     return ptr;
 }
+
+Clay_ElementId* ClayHelper_HashString(Clay_String* label, uint32_t offset, uint32_t seed) {
+    Clay_ElementId* ptr = (Clay_ElementId*)malloc(sizeof(Clay_ElementId));
+    *ptr = Clay__HashString(*label, offset, seed);
+    return ptr;
+}

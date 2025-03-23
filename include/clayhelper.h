@@ -24,3 +24,5 @@ Clay_ElementId* ClayHelper_GetElementId(Clay_String* idString);
 Clay_ElementId* ClayHelper_GetElementIdWithIndex(Clay_String* idString, uint32_t index);
 
 Clay_ElementData* ClayHelper_GetElementData(Clay_ElementId* id);
+
+Clay_ElementId* ClayHelper_HashString(Clay_String* label, uint32_t offset, uint32_t seed);

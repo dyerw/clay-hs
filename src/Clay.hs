@@ -1,4 +1,2 @@
-module Clay (someFunc) where
+module Clay where
 
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
