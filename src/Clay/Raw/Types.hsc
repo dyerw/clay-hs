@@ -409,9 +409,9 @@ instance Storable ClaySizingAxis where
 -- | Controls the sizing of this element along both axes inside its parent container.
 data ClaySizing = ClaySizing
   { -- | Controls the width sizing of the element, along the x axis.
-    claySizingWidth :: ClaySizingAxis,
+    claySizingWidth :: Maybe ClaySizingAxis,
     -- | Controls the height sizing of the element, along the y axis.
-    claySizingHeight :: ClaySizingAxis
+    claySizingHeight :: Maybe ClaySizingAxis
   } deriving (Eq, Show)
 
 instance Storable ClaySizing where
@@ -504,9 +504,7 @@ pattern ClayTextWrapNone = ClayTextElementConfigWrapMode 2
 instance Storable ClayTextElementConfigWrapMode where
   sizeOf _ = #{size uint8_t}
   alignment _ = #{alignment uint8_t}
-  peek ptr = do
-    val <- peek (castPtr ptr) 
-    pure $ ClayTextElementConfigWrapMode val
+  peek ptr = ClayTextElementConfigWrapMode <$> peek (castPtr ptr) 
   poke ptr (ClayTextElementConfigWrapMode mode) = poke (castPtr ptr) mode
 
 -- | Controls how wrapped lines of text are horizontally aligned within the outer text bounding box.

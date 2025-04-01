@@ -1,1 +1,10 @@
 dist-newstyle/
+.hie/
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*

@@ -26,7 +26,7 @@ module Clay.Raw
     clayHashString,
     toClayString,
     fromClayString,
-    arrayToList
+    arrayToList,
   )
 where
 
@@ -114,7 +114,12 @@ foreign import capi "clay.h Clay__OpenElement"
   clayOpenElement :: IO ()
 
 foreign import capi "clay.h Clay__ConfigureOpenElementPtr"
-  clayConfigureOpenElement :: Ptr ClayElementDeclaration -> IO ()
+  clayConfigureOpenElementPtr :: Ptr ClayElementDeclaration -> IO ()
+
+clayConfigureOpenElement :: ClayElementDeclaration -> IO ()
+clayConfigureOpenElement decl = alloca $ \ptr -> do
+  poke ptr decl
+  clayConfigureOpenElementPtr ptr
 
 foreign import capi "clay.h Clay__CloseElement"
   clayCloseElement :: IO ()
