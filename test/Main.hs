@@ -1,7 +1,8 @@
 module Main (main) where
 
-import qualified RawSpec
+import qualified Clay.LayoutSpec
 import qualified Raw.TypesSpec
+import qualified RawSpec
 import Test.Hspec
 
 main :: IO ()
@@ -11,3 +12,4 @@ spec :: Spec
 spec = do
   describe "Raw" RawSpec.spec
   describe "Raw.Types" Raw.TypesSpec.spec
+  describe "Clay.Layout" Clay.LayoutSpec.spec

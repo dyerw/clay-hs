@@ -417,12 +417,17 @@ data ClaySizing = ClaySizing
 instance Storable ClaySizing where
   sizeOf _ = #{size Clay_Sizing}
   alignment _ = #{alignment Clay_Sizing}
-  peek ptr = ClaySizing
-    <$> #{peek Clay_Sizing, width} ptr
-    <*> #{peek Clay_Sizing, height} ptr
-  poke ptr (ClaySizing w h) = do
-    #{poke Clay_Sizing, width} ptr w
-    #{poke Clay_Sizing, height} ptr h
+  peek ptr = do 
+    let widthPtr = plusPtr ptr (#offset Clay_Sizing, width) 
+    f1 <- peekMaybe widthPtr
+    let heightPtr = plusPtr ptr (#offset Clay_Sizing, height)
+    f2 <- peekMaybe heightPtr
+    pure $ ClaySizing f1 f2
+  poke ptr (ClaySizing f1 f2) = do
+    zeroMemory ptr (sizeOf (undefined :: ClaySizing))
+
+    maybe (pure ()) ((#poke Clay_Sizing, width) ptr) f1
+    maybe (pure ()) ((#poke Clay_Sizing, height) ptr) f2
 
 -- | Controls "padding" in pixels, which is a gap between the bounding box of this element and where its children
 -- | will be placed.
