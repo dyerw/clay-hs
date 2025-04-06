@@ -1,12 +1,12 @@
 {-# LANGUAGE StrictData #-}
 
-module Clay.Render
-  ( RenderCommand (..),
-    RenderData (..),
-    calculateLayout,
-    Rect (..),
-    TextRenderData (..),
-  )
+module Clay.Render (
+  RenderCommand (..),
+  RenderData (..),
+  calculateLayout,
+  Rect (..),
+  TextRenderData (..),
+)
 where
 
 import Clay.Layout
@@ -16,9 +16,9 @@ import Data.Text
 import Foreign.C.Types
 
 data RenderCommand font = RenderCommand
-  { renderCommandBoundingBox :: Rect Float,
-    renderCommandZIndex :: Int,
-    renderCommandRenderData :: RenderData font
+  { renderCommandBoundingBox :: Rect Float
+  , renderCommandZIndex :: Int
+  , renderCommandRenderData :: RenderData font
   }
 
 newtype RenderData font
@@ -40,60 +40,55 @@ declareElement e = do
 
 configureElement :: Element f e i -> IO ()
 configureElement e = do
-  let clayDecl = elementDeclarationToClayElementDeclaration e
+  let clayDecl = toClayElementDeclaration e undefined
   clayConfigureOpenElement clayDecl
   pure ()
 
-elementDeclarationToClayElementDeclaration :: Element f e i -> ClayElementDeclaration
-elementDeclarationToClayElementDeclaration = undefined
+toClayElementDeclaration :: Element f e i -> ElementContext -> ClayElementDeclaration
+toClayElementDeclaration = undefined
 
-elementDeclarationToClayLayoutConfig :: Bool -> Style e -> ClayLayoutConfig
-elementDeclarationToClayLayoutConfig isHovered style =
+toClayLayoutConfig :: ElementStyle -> ElementContext -> ClayLayoutConfig
+toClayLayoutConfig style ctx =
   ClayLayoutConfig
-    { clayLayoutConfigSizing =
-        ClaySizing
-          { claySizingWidth = axisToClayAxis <$> xAxis,
-            claySizingHeight = axisToClayAxis <$> yAxis
-          },
-      clayLayoutConfigChildAlignment = undefined,
-      clayLayoutConfigChildGap = undefined,
-      clayLayoutConfigPadding = undefined,
-      clayLayoutConfigLayoutDirection = undefined
+    { clayLayoutConfigSizing = toClaySizing style ctx
+    , clayLayoutConfigChildAlignment = undefined
+    , clayLayoutConfigChildGap = undefined
+    , clayLayoutConfigPadding = undefined
+    , clayLayoutConfigLayoutDirection = undefined
     }
-  where
-    sizingStyle = styleSizing style
 
-    xAxis :: Maybe Sizing
-    xAxis = resolveHoverableLast isHovered $ sizingStyleXAxis sizingStyle
-
-    yAxis :: Maybe Sizing
-    yAxis = resolveHoverableLast isHovered $ sizingStyleYAxis sizingStyle
-
-    axisToClayAxis :: Sizing -> ClaySizingAxis
-    axisToClayAxis a = case a of
-      Fit -> ClaySizingAxis (Right 0) claySizingTypeFit
-      Grow -> ClaySizingAxis (Right 0) claySizingTypeFit
-      Percent f -> ClaySizingAxis (Right (CFloat f)) claySizingTypePercent
-      Fixed i ->
-        ClaySizingAxis
-          (Left $ ClaySizingMinMax (fromIntegral i) (fromIntegral i))
-          claySizingTypeFixed
+toClaySizing :: ElementStyle -> ElementContext -> ClaySizing
+toClaySizing style ctx =
+  let xSizing = toMaybe $ getSizing style ctx XAxis
+      ySizing = toMaybe $ getSizing style ctx YAxis
+      toClayAxis a = case a of
+        Fit -> ClaySizingAxis (Right 0) claySizingTypeFit
+        Grow -> ClaySizingAxis (Right 0) claySizingTypeFit
+        Percent f -> ClaySizingAxis (Right (CFloat f)) claySizingTypePercent
+        Fixed i ->
+          ClaySizingAxis
+            (Left $ ClaySizingMinMax (fromIntegral i) (fromIntegral i))
+            claySizingTypeFixed
+   in ClaySizing
+        { claySizingWidth = toClayAxis <$> xSizing
+        , claySizingHeight = toClayAxis <$> ySizing
+        }
 
 clayRenderCommandToRenderCommand :: ClayRenderCommand -> RenderCommand font
 clayRenderCommandToRenderCommand = undefined
 
 data Rect a = Rect
-  { rectX :: a,
-    rectY :: a,
-    rectWidth :: a,
-    rectHeight :: a
+  { rectX :: a
+  , rectY :: a
+  , rectWidth :: a
+  , rectHeight :: a
   }
 
 data TextRenderData font = TextRenderData
-  { textRenderDataText :: Text,
-    textRenderDataColor :: Color,
-    textRenderDataFont :: font,
-    textRenderDataFontSize :: Int,
-    textRenderDataLetterSpacing :: Int,
-    textRenderDataLineHeight :: Int
+  { textRenderDataText :: Text
+  , textRenderDataColor :: Color
+  , textRenderDataFont :: font
+  , textRenderDataFontSize :: Int
+  , textRenderDataLetterSpacing :: Int
+  , textRenderDataLineHeight :: Int
   }

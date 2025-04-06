@@ -3,8 +3,8 @@ to ensure they create the same render commands
 -}
 module Equivalence.ClayWebsite where
 
--- import Clay.Layout
--- import Data.Text
+import Clay.Layout
+import Data.Text
 
 import Test.Hspec
 
@@ -13,18 +13,22 @@ spec = do
   pure ()
 
 -- Implement Clay website
--- data Fonts = BodyFont | TitleFont
---
--- type ImageUrl = Text
---
--- data Events = RendererButtonClicked
---
--- type HomepageElement = Element Events Fonts ImageUrl
---
--- headerText =
---   TextElement
---     (TextElementConfig (61, 26, 5, 255) BodyFont 24)
---
+data Fonts = BodyFont | TitleFont
+
+type ImageUrl = Text
+
+data Events = RendererButtonClicked
+
+type WebsiteElement = Element Events Fonts ImageUrl
+
+headerText :: Text -> WebsiteElement
+headerText =
+  text
+    ( font BodyFont
+        <> textColor (Color 61 26 5 255)
+        <> fontSize 24
+    )
+
 -- landingPageBlob :: Int -> Int -> Color -> ImageUrl -> String
 -- landingPageBlob idx fs c text imageUrl =
 --   elIx

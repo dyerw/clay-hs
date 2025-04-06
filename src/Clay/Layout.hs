@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE StrictData #-}
 
 module Clay.Layout (
@@ -8,21 +7,21 @@ module Clay.Layout (
   elI,
   extend,
   extendWith,
-  Maybe (..),
-  Hoverable (..),
-  UIContext (..),
-  getUI,
-  resolveHoverableLast,
+  StyleValue (..),
+  toMaybe,
   Style (..),
   Axis (..),
-  sizing,
+  ElementContext (..),
+  hovered,
+  getStyleValue,
+  getSizing,
   Color (..),
-  TextStyle (..),
+  ElementStyle,
+  TextStyle,
   ElementId,
   PaddingStyle (..),
   SizingStyle (..),
   Sizing (..),
-  unLast,
   fitX,
   fitY,
   fit,
@@ -47,6 +46,9 @@ module Clay.Layout (
   paddingAll,
   -- onHover,
   text,
+  font,
+  textColor,
+  fontSize,
 )
 where
 
@@ -61,99 +63,99 @@ i is the image
 data Element e f i
   = Element
       { elementId :: Maybe ElementId
-      , elementStyle :: Style e
+      , elementStyle :: ElementStyle
       , elementChildren :: [Element e f i]
       }
   | TextElement (TextStyle f) Text
 
-data Color = Color {colorR :: Int, colorG :: Int, colorB :: Int, colorA :: Int}
-
-data TextStyle f = TextStyle
-  { textStyleTextColor :: Color
-  , textStyleFont :: f
+data Color
+  = Color
+  { colorR :: Int
+  , colorG :: Int
+  , colorB :: Int
+  , colorA :: Int
   }
+  deriving (Eq, Show)
 
-el_ :: Style e -> [Element e f i] -> Element e f i
+el_ :: ElementStyle -> [Element e f i] -> Element e f i
 el_ = Element Nothing
 
-el :: Text -> Style e -> [Element e f i] -> Element e f i
+el :: Text -> ElementStyle -> [Element e f i] -> Element e f i
 el eid = Element (Just (ElementId eid Nothing))
 
-elI :: Text -> Int -> Style e -> [Element e f i] -> Element e f i
+elI :: Text -> Int -> ElementStyle -> [Element e f i] -> Element e f i
 elI eid eidx = Element (Just (ElementId eid (Just eidx)))
 
-extendWith :: Element e f i -> (Style e -> Style e) -> Element e f i
+extendWith :: Element e f i -> (ElementStyle -> ElementStyle) -> Element e f i
 extendWith (Element eid decl1 children) f = Element eid (f decl1) children
 extendWith textElement _ = textElement
 
-extend :: Element e f i -> Style e -> Element e f i
+extend :: Element e f i -> ElementStyle -> Element e f i
 extend e d = extendWith e (<> d)
-
-text :: TextStyle f -> Text -> Element e f i
-text = TextElement
 
 data ElementId = ElementId Text (Maybe Int)
 
-data Hoverable a = Hoverable {hovered :: a, notHovered :: a} deriving (Eq, Show, Functor)
+data StyleValue a = StyleValue a | Default deriving (Eq, Show)
 
-mkHoverable :: a -> Hoverable a
-mkHoverable a = Hoverable a a
+instance Semigroup (StyleValue a) where
+  sva <> Default = sva
+  _ <> svb = svb
 
-instance (Semigroup a) => Semigroup (Hoverable a) where
-  Hoverable a1 a2 <> Hoverable a3 a4 = Hoverable (a1 <> a3) (a2 <> a4)
+instance Monoid (StyleValue a) where
+  mempty = Default
 
-instance (Monoid a) => Monoid (Hoverable a) where
-  mempty = Hoverable mempty mempty
+newtype ElementContext = ElementContext
+  { elementContextIsHovered :: Bool
+  }
 
-type Last a = Dual (Alt Maybe a)
+toMaybe :: StyleValue a -> Maybe a
+toMaybe (StyleValue a) = Just a
+toMaybe Default = Nothing
 
-mkLast :: a -> Last a
-mkLast a = Dual (Alt (Just a))
+data Style a = Style
+  {styleHovered :: a, styleBase :: a}
 
-unLast :: Last a -> Maybe a
-unLast = getAlt . getDual
+instance (Semigroup a) => Semigroup (Style a) where
+  (Style hovered1 base1) <> (Style hovered2 base2) =
+    Style (hovered1 <> hovered2) (base1 <> base2)
 
-mkHovLast :: a -> Hoverable (Last a)
-mkHovLast = mkHoverable . mkLast
+base :: (Monoid a) => a -> Style a
+base = Style mempty
 
-resolveHoverableLast :: Bool -> Hoverable (Last a) -> Maybe a
-resolveHoverableLast isHov a =
-  let f = if isHov then hovered else notHovered
-   in unLast (f a)
+hovered :: (Monoid a) => Style a -> Style a
+hovered (Style h b) = Style (h <> b) mempty
 
-{- | A Style is just a big record you can build up with convenience functions.
-Element declarations can be composed monoidally like: @padding 10 10 10 10 <> onHover ElementHovered <> fitX@.
-The right declaration will override shared properties on the left: @(paddingTop 10 <> paddingTop 20) == paddingTop 20@.
--}
-data Style e = Style
-  { styleOnHover :: Last e
-  , styleSizing :: SizingStyle
+type ElementStyle = Style ElementStyleValues
+type TextStyle f = Style (TextStyleValues f)
+
+getStyleValue ::
+  (Semigroup a) =>
+  Style a ->
+  ElementContext ->
+  (a -> StyleValue b) ->
+  StyleValue b
+getStyleValue (Style h b) (ElementContext isHovered) f =
+  let derivedStyle = if isHovered then b <> h else b
+   in f derivedStyle
+
+data ElementStyleValues = ElementStyleValues
+  { styleSizing :: SizingStyle
   , stylePadding :: PaddingStyle
   }
   deriving (Eq, Show)
 
-instance Semigroup (Style e) where
-  Style hover1 sizing1 padding1 <> Style hover2 sizing2 padding2 =
-    Style (hover1 <> hover2) (sizing1 <> sizing2) (padding1 <> padding2)
+-- TODO: Look into deriving these product Monoids with generics
+instance Semigroup ElementStyleValues where
+  ElementStyleValues a1 a2 <> ElementStyleValues b1 b2 =
+    ElementStyleValues (a1 <> b1) (a2 <> b2)
 
-instance Monoid (Style e) where
-  mempty = Style mempty mempty mempty
+instance Monoid ElementStyleValues where
+  mempty = ElementStyleValues mempty mempty
 
 data Axis = XAxis | YAxis deriving (Eq, Show)
 
-newtype UIContext = UIContext {isHovered :: Bool}
-
-getUI :: Reader UIContext a -> UIContext -> a
-getUI = runReader
-
-fromHoverable :: Hoverable a -> Reader UIContext a
-fromHoverable hoverable = do
-  isH <- asks isHovered
-  let f = if isH then hovered else notHovered
-  pure $ f hoverable
-
-sizing :: Style e -> Axis -> Reader UIContext (Maybe Sizing)
-sizing style axis = unLast <$> fromHoverable (getAxis $ styleSizing style)
+getSizing :: ElementStyle -> ElementContext -> Axis -> StyleValue Sizing
+getSizing style ctx axis = getStyleValue style ctx (getAxis . styleSizing)
  where
   getAxis = if axis == XAxis then sizingStyleXAxis else sizingStyleYAxis
 
@@ -162,8 +164,8 @@ sizing style axis = unLast <$> fromHoverable (getAxis $ styleSizing style)
 -- ** Sizing
 
 data SizingStyle = SizingStyle
-  { sizingStyleXAxis :: Hoverable (Last Sizing)
-  , sizingStyleYAxis :: Hoverable (Last Sizing)
+  { sizingStyleXAxis :: StyleValue Sizing
+  , sizingStyleYAxis :: StyleValue Sizing
   }
   deriving (Eq, Show)
 
@@ -180,103 +182,111 @@ instance Monoid SizingStyle where
 
 data Sizing = Fit | Grow | Percent Float | Fixed Int deriving (Eq, Show)
 
-fitX :: Style e
+fitX :: ElementStyle
 fitX =
-  mempty
-    { styleSizing =
-        mempty
-          { sizingStyleXAxis = mkHovLast Fit
-          }
-    }
+  base $
+    mempty
+      { styleSizing =
+          mempty
+            { sizingStyleXAxis = StyleValue Fit
+            }
+      }
 
-fitY :: Style e
+fitY :: ElementStyle
 fitY =
-  mempty
-    { styleSizing =
-        mempty
-          { sizingStyleYAxis = mkHovLast Fit
-          }
-    }
+  base $
+    mempty
+      { styleSizing =
+          mempty
+            { sizingStyleYAxis = StyleValue Fit
+            }
+      }
 
-fit :: Style e
+fit :: ElementStyle
 fit = fitX <> fitY
 
-growX :: Style e
+growX :: ElementStyle
 growX =
-  mempty
-    { styleSizing =
-        mempty
-          { sizingStyleXAxis = mkHovLast Grow
-          }
-    }
+  base $
+    mempty
+      { styleSizing =
+          mempty
+            { sizingStyleXAxis = StyleValue Grow
+            }
+      }
 
-growY :: Style e
+growY :: ElementStyle
 growY =
-  mempty
-    { styleSizing =
-        mempty
-          { sizingStyleYAxis = mkHovLast Grow
-          }
-    }
+  base $
+    mempty
+      { styleSizing =
+          mempty
+            { sizingStyleYAxis = StyleValue Grow
+            }
+      }
 
-grow :: Style e
+grow :: ElementStyle
 grow = growX <> growY
 
-percentX :: Float -> Style e
+percentX :: Float -> ElementStyle
 percentX x =
-  mempty
-    { styleSizing =
-        mempty
-          { sizingStyleXAxis = mkHovLast (Percent x)
-          }
-    }
+  base $
+    mempty
+      { styleSizing =
+          mempty
+            { sizingStyleXAxis = StyleValue (Percent x)
+            }
+      }
 
-percentY :: Float -> Style e
+percentY :: Float -> ElementStyle
 percentY y =
-  mempty
-    { styleSizing =
-        mempty
-          { sizingStyleYAxis = mkHovLast (Percent y)
-          }
-    }
+  base $
+    mempty
+      { styleSizing =
+          mempty
+            { sizingStyleYAxis = StyleValue (Percent y)
+            }
+      }
 
-percent :: Float -> Style e
+percent :: Float -> ElementStyle
 percent xy = percentX xy <> percentY xy
 
-percentXY :: Float -> Float -> Style e
+percentXY :: Float -> Float -> ElementStyle
 percentXY x y = percentX x <> percentY y
 
-fixedX :: Int -> Style e
+fixedX :: Int -> ElementStyle
 fixedX x =
-  mempty
-    { styleSizing =
-        mempty
-          { sizingStyleXAxis = mkHovLast (Fixed x)
-          }
-    }
+  base $
+    mempty
+      { styleSizing =
+          mempty
+            { sizingStyleXAxis = StyleValue (Fixed x)
+            }
+      }
 
-fixedY :: Int -> Style e
+fixedY :: Int -> ElementStyle
 fixedY y =
-  mempty
-    { styleSizing =
-        mempty
-          { sizingStyleYAxis = mkHovLast (Fixed y)
-          }
-    }
+  base $
+    mempty
+      { styleSizing =
+          mempty
+            { sizingStyleYAxis = StyleValue (Fixed y)
+            }
+      }
 
-fixed :: Int -> Style e
+fixed :: Int -> ElementStyle
 fixed xy = fixedX xy <> fixedY xy
 
-fixedXY :: Int -> Int -> Style e
+fixedXY :: Int -> Int -> ElementStyle
 fixedXY x y = fixedX x <> fixedY y
 
 -- ** Padding
 
 data PaddingStyle = PaddingStyle
-  { paddingStyleTop :: Hoverable (Last Int)
-  , paddingStyleRight :: Hoverable (Last Int)
-  , paddingStyleBottom :: Hoverable (Last Int)
-  , paddingStyleLeft :: Hoverable (Last Int)
+  { paddingStyleTop :: StyleValue Int
+  , paddingStyleRight :: StyleValue Int
+  , paddingStyleBottom :: StyleValue Int
+  , paddingStyleLeft :: StyleValue Int
   }
   deriving (Eq, Show)
 
@@ -287,40 +297,67 @@ instance Semigroup PaddingStyle where
 instance Monoid PaddingStyle where
   mempty = PaddingStyle mempty mempty mempty mempty
 
-paddingTop :: Int -> Style e
-paddingTop value = mempty{stylePadding = mempty{paddingStyleTop = mkHovLast value}}
+paddingTop :: Int -> ElementStyle
+paddingTop value = base $ mempty{stylePadding = mempty{paddingStyleTop = StyleValue value}}
 
-paddingRight :: Int -> Style e
-paddingRight value = mempty{stylePadding = mempty{paddingStyleRight = mkHovLast value}}
+paddingRight :: Int -> ElementStyle
+paddingRight value = base $ mempty{stylePadding = mempty{paddingStyleRight = StyleValue value}}
 
-paddingBottom :: Int -> Style e
-paddingBottom value = mempty{stylePadding = mempty{paddingStyleBottom = mkHovLast value}}
+paddingBottom :: Int -> ElementStyle
+paddingBottom value = base $ mempty{stylePadding = mempty{paddingStyleBottom = StyleValue value}}
 
-paddingLeft :: Int -> Style e
-paddingLeft value = mempty{stylePadding = mempty{paddingStyleLeft = mkHovLast value}}
+paddingLeft :: Int -> ElementStyle
+paddingLeft value = base $ mempty{stylePadding = mempty{paddingStyleLeft = StyleValue value}}
 
-paddingY :: Int -> Style e
-paddingY value = mempty{stylePadding = mempty{paddingStyleTop = mkHovLast value, paddingStyleBottom = mkHovLast value}}
+paddingY :: Int -> ElementStyle
+paddingY value = base $ mempty{stylePadding = mempty{paddingStyleTop = StyleValue value, paddingStyleBottom = StyleValue value}}
 
-paddingX :: Int -> Style e
-paddingX value = mempty{stylePadding = mempty{paddingStyleLeft = mkHovLast value, paddingStyleRight = mkHovLast value}}
+paddingX :: Int -> ElementStyle
+paddingX value = base $ mempty{stylePadding = mempty{paddingStyleLeft = StyleValue value, paddingStyleRight = StyleValue value}}
 
 -- | Specified in clockwise order from the top
-padding :: Int -> Int -> Int -> Int -> Style e
+padding :: Int -> Int -> Int -> Int -> ElementStyle
 padding top right bottom left =
   paddingTop top
     <> paddingRight right
     <> paddingBottom bottom
     <> paddingLeft left
 
-paddingAll :: Int -> Style e
+paddingAll :: Int -> ElementStyle
 paddingAll p =
   paddingTop p
     <> paddingRight p
     <> paddingBottom p
     <> paddingLeft p
 
--- * Events
+-- | * Events
 
--- onHover :: e -> Style e
+-- onHover :: e -> Style
 -- onHover e = mempty {styleOnHover = pure e}
+
+-- | * Text
+text :: TextStyle f -> Text -> Element e f i
+text = TextElement
+
+data TextStyleValues f = TextStyleValues
+  { textStyleTextColor :: StyleValue Color
+  , textStyleFont :: StyleValue f
+  , textStyleFontSize :: StyleValue Int
+  }
+  deriving (Eq, Show)
+
+instance Semigroup (TextStyleValues f) where
+  (TextStyleValues c1 f1 s1) <> (TextStyleValues c2 f2 s2) =
+    TextStyleValues (c1 <> c2) (f1 <> f2) (s1 <> s2)
+
+instance Monoid (TextStyleValues f) where
+  mempty = TextStyleValues mempty mempty mempty
+
+font :: f -> TextStyle f
+font f = base $ mempty{textStyleFont = StyleValue f}
+
+textColor :: Color -> TextStyle f
+textColor c = base $ mempty{textStyleTextColor = StyleValue c}
+
+fontSize :: Int -> TextStyle f
+fontSize s = base $ mempty{textStyleFontSize = StyleValue s}
