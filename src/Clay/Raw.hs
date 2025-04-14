@@ -2,36 +2,41 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- |
--- Module      : Clay.Raw
--- Description : Direct bindings to Clay functions
--- License     : MIT
--- Maintainer  : liamd94@gmail.com
---
--- Direct ports of all functions in @clay.h@. Where the original function
--- took or received structs by value it is instead bound to a helper function
--- that passes the struct by pointer. Functions peeking those values into managed
--- memory are exposed so calling code doesn't have to fuss with pointers.
-module Clay.Raw
-  ( clayMinMemorySize,
-    clayCreateArenaWithCapacityAndMemory,
-    clayInitialize,
-    claySetPointerState,
-    clayGetCurrentContext,
-    clayBeginLayout,
-    clayEndLayout,
-    clayOpenElement,
-    clayConfigureOpenElement,
-    clayCloseElement,
-    clayHashString,
-    toClayString,
-    fromClayString,
-    arrayToList,
-  )
+{- |
+Module      : Clay.Raw
+Description : Direct bindings to Clay functions
+License     : MIT
+Maintainer  : liamd94@gmail.com
+
+Direct ports of all functions in @clay.h@. Where the original function
+took or received structs by value it is instead bound to a helper function
+that passes the struct by pointer. Functions peeking those values into managed
+memory are exposed so calling code doesn't have to fuss with pointers.
+-}
+module Clay.Raw (
+  clayMinMemorySize,
+  clayCreateArenaWithCapacityAndMemory,
+  clayInitialize,
+  claySetPointerState,
+  claySetLayoutDimensions,
+  clayGetCurrentContext,
+  clayBeginLayout,
+  clayEndLayout,
+  clayOpenElement,
+  clayConfigureOpenElement,
+  clayCloseElement,
+  clayHashString,
+  clayHovered,
+  toClayString,
+  fromClayString,
+  arrayToList,
+)
 where
 
 import Clay.Raw.Types
 import Control.Exception (bracket)
+import Control.Monad.IO.Class (MonadIO)
+import Data.Text
 import Foreign
 import Foreign.C
 
@@ -99,13 +104,13 @@ foreign import capi "clay.h Clay_GetCurrentContext"
 --   poke ptr v
 --   clayUpdateScrollContainersHelper b ptr f
 
--- foreign import capi "clayhelper.h ClayHelper_SetLayoutDimensions"
---   claySetLayoutDimensionsHelper :: Ptr ClayDimensions -> IO ()
+foreign import capi "clayhelper.h ClayHelper_SetLayoutDimensions"
+  claySetLayoutDimensionsPtr :: Ptr ClayDimensions -> IO ()
 
--- claySetLayoutDimensions :: ClayDimensions -> IO ()
--- claySetLayoutDimensions dims = alloca $ \ptr -> do
---   poke ptr dims
---   claySetLayoutDimensionsHelper ptr
+claySetLayoutDimensions :: ClayDimensions -> IO ()
+claySetLayoutDimensions dims = alloca $ \ptr -> do
+  poke ptr dims
+  claySetLayoutDimensionsPtr ptr
 
 foreign import capi "clay.h Clay_BeginLayout"
   clayBeginLayout :: IO ()
@@ -125,10 +130,10 @@ foreign import capi "clay.h Clay__CloseElement"
   clayCloseElement :: IO ()
 
 foreign import capi "clayhelper.h ClayHelper_HashString"
-  clayHashStringHelper :: Ptr ClayString -> CInt -> CInt -> IO (Ptr ClayElementId)
+  clayHashStringHelper :: Ptr ClayString -> CUInt -> CUInt -> IO (Ptr ClayElementId)
 
 -- seed is parent id
-clayHashString :: ClayString -> CInt -> CInt -> IO ClayElementId
+clayHashString :: ClayString -> CUInt -> CUInt -> IO ClayElementId
 clayHashString label offset seed = alloca $ \labelPtr -> do
   poke labelPtr label
   bracket
@@ -148,11 +153,14 @@ clayEndLayout = bracket clayEndLayoutHelper free peek
 -- foreign import capi "clayhelper.h ClayHelper_GetElementIdWithIndex"
 --   clayGetElementIdWithIndex :: Ptr ClayString -> CInt -> Ptr ClayElementId
 
+foreign import capi "clay.h Clay_Hovered"
+  clayHovered :: IO Bool
+
 -- * Clay Strings
 
-toClayString :: String -> IO ClayString
+toClayString :: Text -> IO ClayString
 toClayString s = do
-  (ptr, len) <- newCStringLen s
+  (ptr, len) <- newCStringLen (unpack s)
   pure $ ClayString (fromIntegral len) ptr
 
 fromClayString :: ClayString -> IO String

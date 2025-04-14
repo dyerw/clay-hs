@@ -29,48 +29,57 @@ headerText =
         <> fontSize 24
     )
 
--- landingPageBlob :: Int -> Int -> Color -> ImageUrl -> String
--- landingPageBlob idx fs c text imageUrl =
---   elIx
---     "HeroBlob"
---     idx
---     ( paddingAll 16
---         <> growMax 480
---         <> childGap 16
---         <> childAlign YCenter
---         <> (border 2 c)
---         <> cornerRadius 10
---     )
---     [ imageIx "CheckImage" idx imageUrl (fixed 32)
---     , text (color c <> fontSize fs)
---     ]
---
--- landingPageDesktop :: HomepageElement
--- landingPageDesktop =
---   el
---     "LandingPage1Desktop"
---     (growX <> (fitMin $ WH - 70) <> childAlign YCenter <> paddingAll 50)
---     [ el
---         "LandingPage1"
---         (grow <> childAlign YCenter <> childGap 32 <> paddingAll 32 <> borderRL 2 red)
---         [ el
---             "LeftText"
---             (percentX 0.55 <> topToBottom <> childGap 8)
---             [ text (fontSize 56 <> TitleFont <> red) "Clay is a blah blah blah"
---             , el "LandingPageSpacer" (grow <> fixed 32)
---             , text (fontSize 36 <> TitleFont <> orange)
---             ]
---         , el
---             "HeroImageOuter"
---             (topToBottom <> percentX 0.45 <> childAlign XCenter <> childGap 16)
---             [ landingPageBlob 1 32 colorBlobBorder5 "High performance" "/clay/images/check_5.png"
---             , landingPageBlob 2 32 colorBlobBorder4 "Flexbox-style responsive layout" "check_6.png"
---             , landingPageBlob 3 32 colorBlobBorder3 "Flexbox-style responsive layout" "check_6.png"
---             , landingPageBlob 4 32 colorBlobBorder2 "Flexbox-style responsive layout" "check_6.png"
---             , landingPageBlob 5 32 colorBlobBorder1 "Flexbox-style responsive layout" "check_6.png"
---             ]
---         ]
---     ]
+landingPageBlob :: Int -> Color -> ImageUrl -> Text -> WebsiteElement
+landingPageBlob fs color img t =
+  element
+    "HeroBlob"
+    ( paddingAll 16
+        <> grow (maxSize (Pixels 480))
+        <> childGap 16
+        <> childAlign YCenter
+        <> border 2 color
+        -- <> cornerRadius 10
+    )
+    [ image "CheckImage" img (fixed 32)
+    , text (textColor color <> fontSize fs) t
+    ]
+
+red :: Color
+red = Color 255 0 0 255
+
+orange = Color 230 100 0 255
+colorBlobBorder1 = Color 230 100 0 255
+colorBlobBorder2 = Color 230 100 0 255
+colorBlobBorder3 = Color 230 100 0 255
+colorBlobBorder4 = Color 230 100 0 255
+colorBlobBorder5 = Color 230 100 0 255
+
+landingPageDesktop =
+  element
+    "LandingPage1Desktop"
+    (growX_ <> fitY (maxSize $ sub ViewHeight 70) <> fitX_ <> childAlign YCenter <> paddingAll 50)
+    [ element
+        "LandingPage1"
+        (grow_ <> childAlign YCenter <> childGap 32 <> paddingAll 32 <> borderX 2 red)
+        [ element
+            "LeftText"
+            (percentX 0.55 <> topToBottom <> childGap 8)
+            [ text (fontSize 56 <> font TitleFont <> textColor red) "Clay is a blah blah blah"
+            , element "LandingPageSpacer" (grow_ <> fixed 32) []
+            , text (fontSize 36 <> font TitleFont <> textColor orange) "Blah"
+            ]
+        , element
+            "HeroImageOuter"
+            (topToBottom <> percentX 0.45 <> childAlign XCenter <> childGap 16)
+            [ landingPageBlob 32 colorBlobBorder5 "High performance" "/clay/images/check_5.png"
+            , landingPageBlob 32 colorBlobBorder4 "Flexbox-style responsive layout" "check_6.png"
+            , landingPageBlob 32 colorBlobBorder3 "Flexbox-style responsive layout" "check_6.png"
+            , landingPageBlob 32 colorBlobBorder2 "Flexbox-style responsive layout" "check_6.png"
+            , landingPageBlob 32 colorBlobBorder1 "Flexbox-style responsive layout" "check_6.png"
+            ]
+        ]
+    ]
+
 --
 -- button :: e -> Color -> Color -> Text -> Style e
 -- button event bgColor bgHoverColor t =

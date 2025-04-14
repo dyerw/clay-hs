@@ -347,42 +347,45 @@ instance Storable ClaySizingType where
     pure $ ClaySizingType val
   poke ptr (ClaySizingType t) = poke (castPtr ptr) t 
 
--- | Controls how child elements are aligned on each axis.
 data ClayChildAlignment = ClayChildAlignment
-  { -- | Controls alignment of children along the x axis.
-    clayChildAlignmentX :: ClayLayoutAlignmentX,
-    -- | Controls alignment of children along the y axis.
-    clayChildAlignmentY :: ClayLayoutAlignmentY
+  { clayChildAlignmentX :: Maybe ClayLayoutAlignmentX,
+    clayChildAlignmentY :: Maybe ClayLayoutAlignmentY
   } deriving (Eq, Show)
 
 instance Storable ClayChildAlignment where
   sizeOf _ = (#size Clay_ChildAlignment)
   alignment _ = (#alignment Clay_ChildAlignment)
-  peek ptr = ClayChildAlignment
-    <$> (#peek Clay_ChildAlignment, x) ptr
-    <*> (#peek Clay_ChildAlignment, y) ptr
+  peek ptr = do 
+    let xPtr = plusPtr ptr (#offset Clay_ChildAlignment, x)
+    f1 <- peekMaybe xPtr
+    let yPtr = plusPtr ptr (#offset Clay_ChildAlignment, y)
+    f2 <- peekMaybe yPtr
+    pure $ ClayChildAlignment f1 f2
   poke ptr (ClayChildAlignment x y) = do
-    (#poke Clay_ChildAlignment, x) ptr x
-    (#poke Clay_ChildAlignment, y) ptr y
+    maybe (pure ()) ((#poke Clay_ChildAlignment, x) ptr) x
+    maybe (pure ()) ((#poke Clay_ChildAlignment, y) ptr) y
 
 -- | Controls the minimum and maximum size in pixels that this element is allowed to grow or shrink to,
 -- | overriding sizing types such as FIT or GROW.
 data ClaySizingMinMax = ClaySizingMinMax
   { -- | The smallest final size of the element on this axis will be this value in pixels.
-    claySizingMinMaxMin :: CFloat,
+    claySizingMinMaxMin :: Maybe CFloat,
     -- | The largest final size of the element on this axis will be this value in pixels.
-    claySizingMinMaxMax :: CFloat
+    claySizingMinMaxMax :: Maybe CFloat
   } deriving (Eq, Show)
 
 instance Storable ClaySizingMinMax where
   sizeOf _ = #{size Clay_SizingMinMax}
   alignment _ = #{alignment Clay_SizingMinMax}
-  peek ptr = ClaySizingMinMax
-    <$> #{peek Clay_SizingMinMax, min} ptr
-    <*> #{peek Clay_SizingMinMax, max} ptr
-  poke ptr (ClaySizingMinMax mn mx) = do
-    #{poke Clay_SizingMinMax, min} ptr mn
-    #{poke Clay_SizingMinMax, max} ptr mx
+  peek ptr = do
+    let minPtr = plusPtr ptr (#offset Clay_SizingMinMax, min) 
+    f1 <- peekMaybe minPtr
+    let maxPtr = plusPtr ptr (#offset Clay_SizingMinMax, max) 
+    f2 <- peekMaybe minPtr
+    pure $ ClaySizingMinMax f1 f2
+  poke ptr (ClaySizingMinMax f1 f2) = do
+    maybe (pure ()) ((#poke Clay_SizingMinMax, min) ptr) f1
+    maybe (pure ()) ((#poke Clay_SizingMinMax, max) ptr) f2
 
 -- | Controls the sizing of this element along one axis inside its parent container.
 data ClaySizingAxis = ClaySizingAxis
@@ -1207,7 +1210,7 @@ instance Storable ClayPointerData where
     (#poke Clay_PointerData, state) ptr f2
 
 data ClayElementDeclaration = ClayElementDeclaration {
-  clayElementDeclarationId :: ClayElementId,
+  clayElementDeclarationId :: Maybe ClayElementId,
   clayElementDeclarationLayout :: ClayLayoutConfig,
   clayElementDeclarationBackgroundColor :: Maybe ClayColor,
   clayElementDeclarationCornerRadius :: Maybe ClayCornerRadius,
@@ -1225,7 +1228,9 @@ instance Storable ClayElementDeclaration where
   sizeOf _ = (#size Clay_ElementDeclaration)
   alignment _ = (#size Clay_ElementDeclaration)
   peek ptr = do
-    f1 <- (#peek Clay_ElementDeclaration, id) ptr
+    let idPtr = plusPtr ptr (#offset Clay_ElementDeclaration, id)
+    f1 <- peekMaybe idPtr
+
     f2 <- (#peek Clay_ElementDeclaration, layout) ptr
 
     let bgColorPtr = plusPtr ptr (#offset Clay_ElementDeclaration, backgroundColor)
@@ -1254,7 +1259,7 @@ instance Storable ClayElementDeclaration where
   poke ptr (ClayElementDeclaration f1 f2 f3 f4 f5 f6 f7 f8 f9 f10) = do
     zeroMemory ptr (sizeOf (undefined :: ClayElementDeclaration))
 
-    (#poke Clay_ElementDeclaration, id) ptr f1
+    maybe (pure ()) ((#poke Clay_ElementDeclaration, id) ptr) f1
     (#poke Clay_ElementDeclaration, layout) ptr f2
     maybe (pure ()) ((#poke Clay_ElementDeclaration, backgroundColor) ptr) f3
     maybe (pure ()) ((#poke Clay_ElementDeclaration, cornerRadius) ptr) f4
