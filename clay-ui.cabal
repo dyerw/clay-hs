@@ -50,7 +50,7 @@ test-suite clay-ui-test
     main-is:          Main.hs
     default-extensions: OverloadedStrings
     build-depends:
-        base ^>=4.17.2.1,
+        base ^>=4.18,
         clay-ui,
         hspec >= 2.11.12,
         text

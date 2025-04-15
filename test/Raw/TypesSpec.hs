@@ -19,8 +19,8 @@ spec = do
     it "Storable preserves equality" $ do
       let rectangle =
             ClayRectangleRenderData
-              { clayRectangleRenderDataBackgroundColor = ClayColor 50 100 255 255
-              , clayRectangleRenderDataCornerRadius = ClayCornerRadius 5 10 15 20
+              { clayRectangleRenderDataBackgroundColor = ClayColor 50 100 255 255,
+                clayRectangleRenderDataCornerRadius = ClayCornerRadius 5 10 15 20
               }
       ptr <- malloc
       poke ptr rectangle
@@ -32,17 +32,17 @@ spec = do
       let renderData =
             ClayRenderDataRectangle $
               ClayRectangleRenderData
-                { clayRectangleRenderDataBackgroundColor = ClayColor 50 100 255 255
-                , clayRectangleRenderDataCornerRadius = ClayCornerRadius 5 10 15 20
+                { clayRectangleRenderDataBackgroundColor = ClayColor 50 100 255 255,
+                  clayRectangleRenderDataCornerRadius = ClayCornerRadius 5 10 15 20
                 }
       let command =
             ClayRenderCommand
-              { clayRenderCommandBoundingBox = ClayBoundingBox 0 0 250 250
-              , clayRenderCommandRenderData = renderData
-              , clayRenderCommandUserData = nullPtr
-              , clayRenderCommandId = 123
-              , clayRenderCommandZIndex = 1
-              , clayRenderCommandCommandType = clayRenderCommandTypeRectangle
+              { clayRenderCommandBoundingBox = ClayBoundingBox 0 0 250 250,
+                clayRenderCommandRenderData = renderData,
+                clayRenderCommandUserData = nullPtr,
+                clayRenderCommandId = 123,
+                clayRenderCommandZIndex = 1,
+                clayRenderCommandCommandType = clayRenderCommandTypeRectangle
               }
       ptr <- malloc
       poke ptr command
@@ -53,33 +53,33 @@ spec = do
     it "reads and writes the optional fields via its Storable instance" $ do
       let sizing =
             ClaySizing
-              { claySizingWidth = Just $ ClaySizingAxis (Right 0.5) claySizingTypePercent
-              , claySizingHeight = Just $ ClaySizingAxis (Right 0.5) claySizingTypePercent
+              { claySizingWidth = Just $ ClaySizingAxis (Right 0.5) claySizingTypePercent,
+                claySizingHeight = Just $ ClaySizingAxis (Right 0.5) claySizingTypePercent
               }
 
       let layoutConfig =
             ClayLayoutConfig
-              { clayLayoutConfigSizing = sizing
-              , clayLayoutConfigPadding = ClayPadding 0 0 0 0
-              , clayLayoutConfigChildGap = 0
-              , clayLayoutConfigChildAlignment = ClayChildAlignment clayAlignXCenter clayAlignYCenter
-              , clayLayoutConfigLayoutDirection = clayLeftToRight
+              { clayLayoutConfigSizing = sizing,
+                clayLayoutConfigPadding = ClayPadding 0 0 0 0,
+                clayLayoutConfigChildGap = 0,
+                clayLayoutConfigChildAlignment = ClayChildAlignment (Just clayAlignXCenter) (Just clayAlignYCenter),
+                clayLayoutConfigLayoutDirection = clayLeftToRight
               }
 
       elementIdStr <- toClayString "some-element-id"
       elementId <- clayHashString elementIdStr 0 0
       let elementDeclaration =
             ClayElementDeclaration
-              { clayElementDeclarationId = elementId
-              , clayElementDeclarationLayout = layoutConfig
-              , clayElementDeclarationBackgroundColor = Just $ ClayColor 0 0 255 255
-              , clayElementDeclarationCornerRadius = Nothing
-              , clayElementDeclarationImage = Nothing
-              , clayElementDeclarationFloating = Nothing
-              , clayElementDeclarationCustom = Nothing
-              , clayElementDeclarationScroll = Nothing
-              , clayElementDeclarationBorder = Nothing
-              , clayElementDeclarationUserData = nullPtr
+              { clayElementDeclarationId = Just elementId,
+                clayElementDeclarationLayout = layoutConfig,
+                clayElementDeclarationBackgroundColor = Just $ ClayColor 0 0 255 255,
+                clayElementDeclarationCornerRadius = Nothing,
+                clayElementDeclarationImage = Nothing,
+                clayElementDeclarationFloating = Nothing,
+                clayElementDeclarationCustom = Nothing,
+                clayElementDeclarationScroll = Nothing,
+                clayElementDeclarationBorder = Nothing,
+                clayElementDeclarationUserData = nullPtr
               }
       ptr <- malloc
       poke ptr elementDeclaration

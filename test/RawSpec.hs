@@ -53,17 +53,17 @@ spec = do
 
       let sizing =
             ClaySizing
-              { claySizingWidth = Just $ ClaySizingAxis (Right 0.5) claySizingTypePercent
-              , claySizingHeight = Just $ ClaySizingAxis (Right 0.5) claySizingTypePercent
+              { claySizingWidth = Just $ ClaySizingAxis (Right 0.5) claySizingTypePercent,
+                claySizingHeight = Just $ ClaySizingAxis (Right 0.5) claySizingTypePercent
               }
 
       let layoutConfig =
             ClayLayoutConfig
-              { clayLayoutConfigSizing = sizing
-              , clayLayoutConfigPadding = ClayPadding 0 0 0 0
-              , clayLayoutConfigChildGap = 0
-              , clayLayoutConfigChildAlignment = ClayChildAlignment clayAlignXCenter clayAlignYCenter
-              , clayLayoutConfigLayoutDirection = clayLeftToRight
+              { clayLayoutConfigSizing = sizing,
+                clayLayoutConfigPadding = ClayPadding 0 0 0 0,
+                clayLayoutConfigChildGap = 0,
+                clayLayoutConfigChildAlignment = ClayChildAlignment (Just clayAlignXCenter) (Just clayAlignYCenter),
+                clayLayoutConfigLayoutDirection = clayLeftToRight
               }
 
       elementIdStr <- toClayString "some-element-id"
@@ -71,16 +71,16 @@ spec = do
 
       let elementDeclaration =
             ClayElementDeclaration
-              { clayElementDeclarationId = elementId
-              , clayElementDeclarationLayout = layoutConfig
-              , clayElementDeclarationBackgroundColor = Just $ ClayColor 0 0 255 255
-              , clayElementDeclarationCornerRadius = Just $ ClayCornerRadius 10 10 10 10
-              , clayElementDeclarationImage = Nothing
-              , clayElementDeclarationFloating = Nothing
-              , clayElementDeclarationCustom = Nothing
-              , clayElementDeclarationScroll = Nothing
-              , clayElementDeclarationBorder = Nothing
-              , clayElementDeclarationUserData = nullPtr
+              { clayElementDeclarationId = Just elementId,
+                clayElementDeclarationLayout = layoutConfig,
+                clayElementDeclarationBackgroundColor = Just $ ClayColor 0 0 255 255,
+                clayElementDeclarationCornerRadius = Just $ ClayCornerRadius 10 10 10 10,
+                clayElementDeclarationImage = Nothing,
+                clayElementDeclarationFloating = Nothing,
+                clayElementDeclarationCustom = Nothing,
+                clayElementDeclarationScroll = Nothing,
+                clayElementDeclarationBorder = Nothing,
+                clayElementDeclarationUserData = nullPtr
               }
 
       clayConfigureOpenElement elementDeclaration
@@ -100,18 +100,18 @@ spec = do
           clayRectangleRenderDataBackgroundColor rectangleData `shouldBe` ClayColor 0 0 255 255
           clayRectangleRenderDataCornerRadius rectangleData `shouldBe` ClayCornerRadius 10 10 10 10
         _ -> error "renderData is not a rectangle"
- where
-  defaultDimensions :: ClayDimensions
-  defaultDimensions = ClayDimensions 500 500
+  where
+    defaultDimensions :: ClayDimensions
+    defaultDimensions = ClayDimensions 500 500
 
-  initClay :: IO ClayContext
-  initClay = do
-    minMemorySize <- fromIntegral <$> clayMinMemorySize
-    arenaMem <- mallocBytes minMemorySize
-    arena <-
-      clayCreateArenaWithCapacityAndMemory
-        (fromIntegral minMemorySize)
-        arenaMem
-    let handleError = print
-    ctxPtr <- clayInitialize arena defaultDimensions handleError
-    peek ctxPtr
+    initClay :: IO ClayContext
+    initClay = do
+      minMemorySize <- fromIntegral <$> clayMinMemorySize
+      arenaMem <- mallocBytes minMemorySize
+      arena <-
+        clayCreateArenaWithCapacityAndMemory
+          (fromIntegral minMemorySize)
+          arenaMem
+      let handleError = print
+      ctxPtr <- clayInitialize arena defaultDimensions handleError
+      peek ctxPtr
