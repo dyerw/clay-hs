@@ -1,11 +1,9 @@
-{- | Compares Haskell implementation to C implementaiton
-to ensure they create the same render commands
--}
+-- | Compares Haskell implementation to C implementaiton
+-- to ensure they create the same render commands
 module Equivalence.ClayWebsite where
 
 import Clay.Layout
 import Data.Text
-
 import Test.Hspec
 
 spec :: Spec
@@ -36,46 +34,58 @@ landingPageBlob fs color img t =
     ( paddingAll 16
         <> grow (maxSize (Pixels 480))
         <> childGap 16
-        <> childAlign YCenter
+        <> childAlignY AlignMiddle
         <> border 2 color
         -- <> cornerRadius 10
     )
-    [ image "CheckImage" img (fixed 32)
-    , text (textColor color <> fontSize fs) t
+    [ image "CheckImage" img (fixed 32),
+      text (textColor color <> fontSize fs) t
     ]
 
 red :: Color
 red = Color 255 0 0 255
 
+orange :: Color
 orange = Color 230 100 0 255
+
+colorBlobBorder1 :: Color
 colorBlobBorder1 = Color 230 100 0 255
+
+colorBlobBorder2 :: Color
 colorBlobBorder2 = Color 230 100 0 255
+
+colorBlobBorder3 :: Color
 colorBlobBorder3 = Color 230 100 0 255
+
+colorBlobBorder4 :: Color
 colorBlobBorder4 = Color 230 100 0 255
+
+colorBlobBorder5 :: Color
 colorBlobBorder5 = Color 230 100 0 255
 
+landingPageDesktop :: Element Events Fonts ImageUrl
 landingPageDesktop =
   element
     "LandingPage1Desktop"
-    (growX_ <> fitY (maxSize $ sub ViewHeight 70) <> fitX_ <> childAlign YCenter <> paddingAll 50)
+    (growX_ <> fitY (maxSize $ sub ViewHeight 70) <> fitX_ <> childAlignY AlignMiddle <> paddingAll 50)
     [ element
         "LandingPage1"
-        (grow_ <> childAlign YCenter <> childGap 32 <> paddingAll 32 <> borderX 2 red)
+        (grow_ <> childAlignY AlignMiddle <> childGap 32 <> paddingAll 32 <> borderX 2 red)
         [ element
             "LeftText"
             (percentX 0.55 <> topToBottom <> childGap 8)
-            [ text (fontSize 56 <> font TitleFont <> textColor red) "Clay is a blah blah blah"
-            , element "LandingPageSpacer" (grow_ <> fixed 32) []
-            , text (fontSize 36 <> font TitleFont <> textColor orange) "Blah"
-            ]
-        , element
+            [ text (fontSize 56 <> font TitleFont <> textColor red) "Clay is a blah blah blah",
+              element "LandingPageSpacer" (grow_ <> fixed 32) [],
+              text (fontSize 36 <> font TitleFont <> textColor orange) "Blah"
+            ],
+          element
             "HeroImageOuter"
-            (topToBottom <> percentX 0.45 <> childAlign XCenter <> childGap 16)
-            [ landingPageBlob 32 colorBlobBorder5 "High performance" "/clay/images/check_5.png"
-            , landingPageBlob 32 colorBlobBorder4 "Flexbox-style responsive layout" "check_6.png"
-            , landingPageBlob 32 colorBlobBorder3 "Flexbox-style responsive layout" "check_6.png"
-            , landingPageBlob 32 colorBlobBorder2 "Flexbox-style responsive layout" "check_6.png"
-            , landingPageBlob 32 colorBlobBorder1 "Flexbox-style responsive layout" "check_6.png"
+            (topToBottom <> percentX 0.45 <> childAlignX AlignCenter <> childGap 16)
+            [ landingPageBlob 32 colorBlobBorder5 "High performance" "/clay/images/check_5.png",
+              landingPageBlob 32 colorBlobBorder4 "Flexbox-style responsive layout" "check_6.png",
+              landingPageBlob 32 colorBlobBorder3 "Flexbox-style responsive layout" "check_6.png",
+              landingPageBlob 32 colorBlobBorder2 "Flexbox-style responsive layout" "check_6.png",
+              landingPageBlob 32 colorBlobBorder1 "Flexbox-style responsive layout" "check_6.png"
             ]
         ]
     ]
