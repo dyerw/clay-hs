@@ -29,7 +29,7 @@ data ClayString = ClayString
     -- | The underlying character memory. Note: this will not be copied and will not extend the lifetime of the underlying memory.
     clayStringChars :: Ptr CChar
   } deriving (Eq, Show)
-  
+
 
 instance Storable ClayString where
   sizeOf _ = (#size Clay_String)
@@ -98,9 +98,6 @@ instance Storable (ClayArraySlice a) where
   poke ptr (ClayArraySlice len int) = do
     (#poke Clay__charArraySlice, length) ptr len
     (#poke Clay__charArraySlice, internalArray) ptr int
-
-
-
 
 -- | Clay_Arena is a memory arena structure that is used by clay to manage its internal allocations.
 -- Rather than creating it by hand, it's easier to use Clay_CreateArenaWithCapacityAndMemory()
@@ -207,7 +204,7 @@ data ClayElementId = ClayElementId
     clayElementIdBaseId :: CUInt,
     -- | The string id to hash.
     clayElementIdStringId :: ClayString
-  }
+  } deriving (Eq, Show)
 
 instance Storable ClayElementId where
   sizeOf _ = (#size Clay_ElementId)
@@ -244,12 +241,12 @@ instance Storable ClayCornerRadius where
     (#poke Clay_CornerRadius, topLeft) ptr tl
     (#poke Clay_CornerRadius, topRight) ptr tr
     (#poke Clay_CornerRadius, bottomLeft) ptr bl
-    (#poke Clay_CornerRadius, bottomRight) ptr br 
+    (#poke Clay_CornerRadius, bottomRight) ptr br
 
 -- * Element Configs
 
 -- | Controls the direction in which child elements will be automatically laid out.
-data ClayLayoutDirection = ClayLayoutDirection CUChar deriving (Eq, Show)   
+data ClayLayoutDirection = ClayLayoutDirection CUChar deriving (Eq, Show)
 
 -- | (Default) Lays out child elements from left to right with increasing x.
 clayLeftToRight :: ClayLayoutDirection
@@ -257,7 +254,6 @@ clayLeftToRight = ClayLayoutDirection 0
 
 pattern ClayLeftToRight :: ClayLayoutDirection
 pattern ClayLeftToRight = ClayLayoutDirection 0
- 
 
 -- | Lays out child elements from top to bottom with increasing y.
 clayTopToBottom :: ClayLayoutDirection
@@ -270,9 +266,9 @@ instance Storable ClayLayoutDirection where
   sizeOf _ = #{size uint8_t}
   alignment _ = #{alignment uint8_t}
   peek ptr = do
-    val <- peek (castPtr ptr) 
+    val <- peek (castPtr ptr)
     return $ ClayLayoutDirection val
-  poke ptr (ClayLayoutDirection d) = poke (castPtr ptr) d 
+  poke ptr (ClayLayoutDirection d) = poke (castPtr ptr) d
 
 -- | Controls the alignment along the x axis (horizontal) of child elements.
 newtype ClayLayoutAlignmentX = ClayLayoutAlignmentX CUChar deriving (Eq, Show)
@@ -293,9 +289,9 @@ instance Storable ClayLayoutAlignmentX where
   sizeOf _ = #{size uint8_t}
   alignment _ = #{alignment uint8_t}
   peek ptr = do
-    val <- peek (castPtr ptr) :: IO CUChar 
+    val <- peek (castPtr ptr) :: IO CUChar
     pure $ ClayLayoutAlignmentX val
-  poke ptr (ClayLayoutAlignmentX a) = poke (castPtr ptr) a 
+  poke ptr (ClayLayoutAlignmentX a) = poke (castPtr ptr) a
 
 -- | Controls the alignment along the y axis (vertical) of child elements.
 newtype ClayLayoutAlignmentY = ClayLayoutAlignmentY CUChar deriving (Eq, Show)
@@ -343,27 +339,29 @@ instance Storable ClaySizingType where
   sizeOf _ = #{size uint8_t}
   alignment _ = #{alignment uint8_t}
   peek ptr = do
-    val <- peek (castPtr ptr) 
+    val <- peek (castPtr ptr)
     pure $ ClaySizingType val
-  poke ptr (ClaySizingType t) = poke (castPtr ptr) t 
+  poke ptr (ClaySizingType t) = poke (castPtr ptr) t
 
 data ClayChildAlignment = ClayChildAlignment
-  { clayChildAlignmentX :: Maybe ClayLayoutAlignmentX,
-    clayChildAlignmentY :: Maybe ClayLayoutAlignmentY
+  { -- | Now mandatory, defaults to ClayAlignXLeft
+    clayChildAlignmentX :: ClayLayoutAlignmentX,
+    -- | Now mandatory, defaults to ClayAlignYTop
+    clayChildAlignmentY :: ClayLayoutAlignmentY
   } deriving (Eq, Show)
 
 instance Storable ClayChildAlignment where
   sizeOf _ = (#size Clay_ChildAlignment)
   alignment _ = (#alignment Clay_ChildAlignment)
-  peek ptr = do 
-    let xPtr = plusPtr ptr (#offset Clay_ChildAlignment, x)
-    f1 <- peekMaybe xPtr
-    let yPtr = plusPtr ptr (#offset Clay_ChildAlignment, y)
-    f2 <- peekMaybe yPtr
+  peek ptr = do
+    f1 <- (#peek Clay_ChildAlignment, x) ptr
+    f2 <- (#peek Clay_ChildAlignment, y) ptr
     pure $ ClayChildAlignment f1 f2
   poke ptr (ClayChildAlignment x y) = do
-    maybe (pure ()) ((#poke Clay_ChildAlignment, x) ptr) x
-    maybe (pure ()) ((#poke Clay_ChildAlignment, y) ptr) y
+    -- Zeroing first ensures defaults if not explicitly poked
+    zeroMemory ptr (sizeOf (undefined :: ClayChildAlignment))
+    (#poke Clay_ChildAlignment, x) ptr x
+    (#poke Clay_ChildAlignment, y) ptr y
 
 -- | Controls the minimum and maximum size in pixels that this element is allowed to grow or shrink to,
 -- | overriding sizing types such as FIT or GROW.
@@ -378,14 +376,17 @@ instance Storable ClaySizingMinMax where
   sizeOf _ = #{size Clay_SizingMinMax}
   alignment _ = #{alignment Clay_SizingMinMax}
   peek ptr = do
-    let minPtr = plusPtr ptr (#offset Clay_SizingMinMax, min) 
+    let minPtr = plusPtr ptr (#offset Clay_SizingMinMax, min)
     f1 <- peekMaybe minPtr
-    let maxPtr = plusPtr ptr (#offset Clay_SizingMinMax, max) 
-    f2 <- peekMaybe minPtr
+    let maxPtr = plusPtr ptr (#offset Clay_SizingMinMax, max)
+    f2 <- peekMaybe maxPtr
     pure $ ClaySizingMinMax f1 f2
   poke ptr (ClaySizingMinMax f1 f2) = do
-    maybe (pure ()) ((#poke Clay_SizingMinMax, min) ptr) f1
-    maybe (pure ()) ((#poke Clay_SizingMinMax, max) ptr) f2
+    -- Rely on parent struct zeroing
+    let minPtr = plusPtr ptr (#offset Clay_SizingMinMax, min)
+    maybe (pure ()) (poke minPtr) f1
+    let maxPtr = plusPtr ptr (#offset Clay_SizingMinMax, max)
+    maybe (pure ()) (poke maxPtr) f2
 
 -- | Controls the sizing of this element along one axis inside its parent container.
 data ClaySizingAxis = ClaySizingAxis
@@ -404,6 +405,7 @@ instance Storable ClaySizingAxis where
       _ -> Left <$> #{peek Clay_SizingAxis, size.minMax} ptr
     return $ ClaySizingAxis size ty
   poke ptr (ClaySizingAxis size ty) = do
+    -- Rely on parent struct zeroing
     #{poke Clay_SizingAxis, type} ptr ty
     case size of
       Left minMax -> #{poke Clay_SizingAxis, size.minMax} ptr minMax
@@ -420,17 +422,18 @@ data ClaySizing = ClaySizing
 instance Storable ClaySizing where
   sizeOf _ = #{size Clay_Sizing}
   alignment _ = #{alignment Clay_Sizing}
-  peek ptr = do 
-    let widthPtr = plusPtr ptr (#offset Clay_Sizing, width) 
+  peek ptr = do
+    let widthPtr = plusPtr ptr (#offset Clay_Sizing, width)
     f1 <- peekMaybe widthPtr
     let heightPtr = plusPtr ptr (#offset Clay_Sizing, height)
     f2 <- peekMaybe heightPtr
     pure $ ClaySizing f1 f2
   poke ptr (ClaySizing f1 f2) = do
-    zeroMemory ptr (sizeOf (undefined :: ClaySizing))
-
-    maybe (pure ()) ((#poke Clay_Sizing, width) ptr) f1
-    maybe (pure ()) ((#poke Clay_Sizing, height) ptr) f2
+    -- Rely on parent struct zeroing
+    let widthPtr = plusPtr ptr (#offset Clay_Sizing, width)
+    maybe (pure ()) (poke widthPtr) f1
+    let heightPtr = plusPtr ptr (#offset Clay_Sizing, height)
+    maybe (pure ()) (poke heightPtr) f2
 
 -- | Controls "padding" in pixels, which is a gap between the bounding box of this element and where its children
 -- | will be placed.
@@ -480,6 +483,7 @@ instance Storable ClayLayoutConfig where
     <*> #{peek Clay_LayoutConfig, childAlignment} ptr
     <*> #{peek Clay_LayoutConfig, layoutDirection} ptr
   poke ptr (ClayLayoutConfig s p cg ca ld) = do
+    -- Rely on parent struct zeroing
     #{poke Clay_LayoutConfig, sizing} ptr s
     #{poke Clay_LayoutConfig, padding} ptr p
     #{poke Clay_LayoutConfig, childGap} ptr cg
@@ -490,7 +494,7 @@ instance Storable ClayLayoutConfig where
 newtype ClayTextElementConfigWrapMode = ClayTextElementConfigWrapMode CUChar deriving (Eq, Show)
 
 -- | (default) breaks on whitespace characters.
-clayTextWrapWords :: ClayTextElementConfigWrapMode 
+clayTextWrapWords :: ClayTextElementConfigWrapMode
 clayTextWrapWords = ClayTextElementConfigWrapMode 0
 
 pattern ClayTextWrapWords :: ClayTextElementConfigWrapMode
@@ -512,7 +516,7 @@ pattern ClayTextWrapNone = ClayTextElementConfigWrapMode 2
 instance Storable ClayTextElementConfigWrapMode where
   sizeOf _ = #{size uint8_t}
   alignment _ = #{alignment uint8_t}
-  peek ptr = ClayTextElementConfigWrapMode <$> peek (castPtr ptr) 
+  peek ptr = ClayTextElementConfigWrapMode <$> peek (castPtr ptr)
   poke ptr (ClayTextElementConfigWrapMode mode) = poke (castPtr ptr) mode
 
 -- | Controls how wrapped lines of text are horizontally aligned within the outer text bounding box.
@@ -538,7 +542,6 @@ clayTextAlignRight = ClayTextAlignment 2
 
 pattern ClayTextAlignRight :: ClayTextAlignment
 pattern ClayTextAlignRight = ClayTextAlignment 2
-
 
 instance Storable ClayTextAlignment where
   sizeOf _ = #{size uint8_t}
@@ -614,6 +617,7 @@ instance Storable ClayImageElementConfig where
     <$> #{peek Clay_ImageElementConfig, imageData} ptr
     <*> #{peek Clay_ImageElementConfig, sourceDimensions} ptr
   poke ptr (ClayImageElementConfig imgd sd) = do
+    -- Rely on parent struct zeroing
     #{poke Clay_ImageElementConfig, imageData} ptr imgd
     #{poke Clay_ImageElementConfig, sourceDimensions} ptr sd
 
@@ -638,7 +642,7 @@ instance Storable ClayFloatingAttachPointType where
   sizeOf _ = #{size uint8_t}
   alignment _ = #{alignment uint8_t}
   peek ptr = do
-    val <- peek (castPtr ptr) :: IO CUChar 
+    val <- peek (castPtr ptr) :: IO CUChar
     pure $ (ClayFloatingAttachPointType val)
   poke ptr (ClayFloatingAttachPointType i) = poke (castPtr ptr) i
 
@@ -659,9 +663,9 @@ instance Storable ClayFloatingAttachPoints where
     pure $ ClayFloatingAttachPoints ele par
   poke ptr (ClayFloatingAttachPoints ele par) = do
     (#poke Clay_FloatingAttachPoints, element) ptr ele
-    (#poke Clay_FloatingAttachPoints, parent) ptr par 
+    (#poke Clay_FloatingAttachPoints, parent) ptr par
 
--- | Controls how mouse pointer events like hover and click are captured or passed 
+-- | Controls how mouse pointer events like hover and click are captured or passed
 -- through to elements underneath a floating element.
 newtype ClayPointerCaptureMode = ClayPointerCaptureMode CUChar deriving (Eq, Show)
 
@@ -680,10 +684,10 @@ pattern ClayPointerCaptureModePassthrough :: ClayPointerCaptureMode
 pattern ClayPointerCaptureModePassthrough = ClayPointerCaptureMode 1
 
 instance Storable ClayPointerCaptureMode where
-  sizeOf _ = (#size uint8_t)
-  alignment _ = (#alignment uint8_t)
+  sizeOf _ = #{size uint8_t}
+  alignment _ = #{alignment uint8_t}
   peek ptr = do
-    val <- peek (castPtr ptr) :: IO CUChar 
+    val <- peek (castPtr ptr) :: IO CUChar
     pure $ (ClayPointerCaptureMode val)
   poke ptr (ClayPointerCaptureMode i) = poke (castPtr ptr) i
 
@@ -715,14 +719,14 @@ pattern ClayAttachToElementWithId = ClayFloatingAttachToElement 2
 clayAttachToRoot :: ClayFloatingAttachToElement
 clayAttachToRoot = ClayFloatingAttachToElement 3
 
-pattern ClayAttachToRoot :: ClayFloatingAttachToElement 
+pattern ClayAttachToRoot :: ClayFloatingAttachToElement
 pattern ClayAttachToRoot = ClayFloatingAttachToElement 3
 
 instance Storable ClayFloatingAttachToElement where
-  sizeOf _ = (#size uint8_t)
-  alignment _ = (#alignment uint8_t)
+  sizeOf _ = #{size uint8_t}
+  alignment _ = #{alignment uint8_t}
   peek ptr = do
-    val <- peek (castPtr ptr) :: IO CUChar 
+    val <- peek (castPtr ptr) :: IO CUChar
     pure $ (ClayFloatingAttachToElement val)
   poke ptr (ClayFloatingAttachToElement i) = poke (castPtr ptr) i
 
@@ -734,9 +738,9 @@ data ClayFloatingElementConfig = ClayFloatingElementConfig {
   -- | Expands the boundaries of the outer floating element without affecting its children.
   clayFloatingElementConfigExpand :: ClayDimensions,
   -- | When used in conjunction with .attachTo = CLAY_ATTACH_TO_ELEMENT_WITH_ID, attaches this floating element to the element in the hierarchy with the provided ID.
-  -- Hint: attach the ID to the other element with .id = CLAY_ID("yourId"), and specify the id the same way, with .parentId = CLAY_ID("yourId").id 
+  -- Hint: attach the ID to the other element with .id = CLAY_ID("yourId"), and specify the id the same way, with .parentId = CLAY_ID("yourId").id
   clayFloatingElementConfigParentId :: CUInt,
-  -- | Controls the z index of this floating element and all its children. Floating elements are sorted in ascending z order before output. 
+  -- | Controls the z index of this floating element and all its children. Floating elements are sorted in ascending z order before output.
   -- zIndex is also passed to the renderer for all elements contained within this floating element.
   clayFloatingElementConfigZIndex :: CShort,
   -- | Controls how mouse pointer events like hover and click are captured or passed through to elements underneath / behind a floating element.
@@ -769,6 +773,7 @@ instance Storable ClayFloatingElementConfig where
     att <- (#peek Clay_FloatingElementConfig, attachTo) ptr
     pure $ ClayFloatingElementConfig off epn pid zin atp pmo att
   poke ptr (ClayFloatingElementConfig off epn pid zin atp pmo att) = do
+    -- Rely on parent struct zeroing
     (#poke Clay_FloatingElementConfig, offset) ptr off
     (#poke Clay_FloatingElementConfig, expand) ptr epn
     (#poke Clay_FloatingElementConfig, parentId) ptr pid
@@ -793,6 +798,7 @@ instance Storable ClayCustomElementConfig where
     cdt <- (#peek Clay_CustomElementConfig, customData) ptr
     pure $ ClayCustomElementConfig cdt
   poke ptr (ClayCustomElementConfig cdt) = do
+    -- Rely on parent struct zeroing
     (#poke Clay_CustomElementConfig, customData) ptr cdt
 
 -- * Scroll
@@ -807,12 +813,13 @@ data ClayScrollElementConfig = ClayScrollElementConfig {
 
 instance Storable ClayScrollElementConfig where
   sizeOf _ = (#size Clay_ScrollElementConfig)
-  alignment _ = (#size Clay_ScrollElementConfig)
+  alignment _ = (#alignment Clay_ScrollElementConfig)
   peek ptr = do
     hor <- (#peek Clay_ScrollElementConfig, horizontal) ptr
     ver <- (#peek Clay_ScrollElementConfig, vertical) ptr
     pure $ ClayScrollElementConfig hor ver
   poke ptr (ClayScrollElementConfig hor ver) = do
+    -- Rely on parent struct zeroing
     (#poke Clay_ScrollElementConfig, horizontal) ptr hor
     (#poke Clay_ScrollElementConfig, vertical) ptr ver
 
@@ -863,6 +870,7 @@ instance Storable ClayBorderElementConfig where
     wid <- (#peek Clay_BorderElementConfig, width) ptr
     pure $ ClayBorderElementConfig col wid
   poke ptr (ClayBorderElementConfig col wid) = do
+    -- Rely on parent struct zeroing
     (#poke Clay_BorderElementConfig, color) ptr col
     (#poke Clay_BorderElementConfig, width) ptr wid
 
@@ -1043,7 +1051,6 @@ instance Storable ClayScrollContainerData where
     (#poke Clay_ScrollContainerData, config) ptr con
     (#poke Clay_ScrollContainerData, found) ptr fnd
 
-
 data ClayElementData = ClayElementData {
   clayElementDataBoundingBox :: ClayBoundingBox,
   clayElementDataFound :: CBool
@@ -1111,10 +1118,10 @@ pattern ClayRenderCommandTypeCustom :: ClayRenderCommandType
 pattern ClayRenderCommandTypeCustom = ClayRenderCommandType 7
 
 instance Storable ClayRenderCommandType where
-  sizeOf _ = (#size uint8_t)
-  alignment _ = (#alignment uint8_t)
+  sizeOf _ = #{size uint8_t}
+  alignment _ = #{alignment uint8_t}
   peek ptr = do
-    val <- peek (castPtr ptr) :: IO CUChar 
+    val <- peek (castPtr ptr) :: IO CUChar
     pure $ (ClayRenderCommandType val)
   poke ptr (ClayRenderCommandType i) = poke (castPtr ptr) i
 
@@ -1138,22 +1145,22 @@ instance Storable ClayRenderCommand where
     typ <- (#peek Clay_RenderCommand, commandType) ptr
 
     ren <- case typ of
-      ClayRenderCommandTypeRectangle -> 
+      ClayRenderCommandTypeRectangle ->
           ClayRenderDataRectangle <$> (#peek Clay_RenderCommand, renderData.rectangle) ptr
-      ClayRenderCommandTypeBorder -> 
+      ClayRenderCommandTypeBorder ->
           ClayRenderDataBorder <$> (#peek Clay_RenderCommand, renderData.border) ptr
-      ClayRenderCommandTypeText -> 
+      ClayRenderCommandTypeText ->
           ClayRenderDataText <$> (#peek Clay_RenderCommand, renderData.text) ptr
-      ClayRenderCommandTypeImage -> 
+      ClayRenderCommandTypeImage ->
           ClayRenderDataImage <$> (#peek Clay_RenderCommand, renderData.image) ptr
-      ClayRenderCommandTypeScissorStart -> 
+      ClayRenderCommandTypeScissorStart ->
           ClayRenderDataScroll <$> (#peek Clay_RenderCommand, renderData.scroll) ptr
-      ClayRenderCommandTypeScissorEnd -> 
+      ClayRenderCommandTypeScissorEnd ->
           ClayRenderDataScroll <$> (#peek Clay_RenderCommand, renderData.scroll) ptr
-      ClayRenderCommandTypeCustom -> 
+      ClayRenderCommandTypeCustom ->
           ClayRenderDataCustom <$> (#peek Clay_RenderCommand, renderData.custom) ptr
       ClayRenderCommandType _ -> pure ClayRenderDataNone
-    
+
     pure $ ClayRenderCommand box ren dat ide zid typ
   poke ptr (ClayRenderCommand box ren dat ide zid typ) = do
     (#poke Clay_RenderCommand, boundingBox) ptr box
@@ -1188,7 +1195,7 @@ instance Storable ClayPointerDataInteractionState where
   sizeOf _ = (#size uint8_t)
   alignment _ = (#alignment uint8_t)
   peek ptr = do
-    val <- peek (castPtr ptr) :: IO CUChar 
+    val <- peek (castPtr ptr) :: IO CUChar
     pure $ (ClayPointerDataInteractionState val)
   poke ptr (ClayPointerDataInteractionState i) = poke (castPtr ptr) i
 
@@ -1204,23 +1211,33 @@ instance Storable ClayPointerData where
     f1 <- (#peek Clay_PointerData, position) ptr
     f2 <- (#peek Clay_PointerData, state) ptr
     pure $ ClayPointerData f1 f2
-  
+
   poke ptr (ClayPointerData f1 f2) = do
     (#poke Clay_PointerData, position) ptr f1
     (#poke Clay_PointerData, state) ptr f2
 
 data ClayElementDeclaration = ClayElementDeclaration {
+  -- | Use Nothing for Clay to skip assigning an ID
   clayElementDeclarationId :: Maybe ClayElementId,
-  clayElementDeclarationLayout :: ClayLayoutConfig,
+  -- | Use Nothing to use Clay's default layout settings
+  clayElementDeclarationLayout :: Maybe ClayLayoutConfig,
+  -- | Use Nothing for transparent background
   clayElementDeclarationBackgroundColor :: Maybe ClayColor,
+  -- | Use Nothing for sharp corners
   clayElementDeclarationCornerRadius :: Maybe ClayCornerRadius,
+  -- | Use Nothing if not rendering an image
   clayElementDeclarationImage :: Maybe ClayImageElementConfig,
+  -- | Use Nothing to disable floating
   clayElementDeclarationFloating :: Maybe ClayFloatingElementConfig,
+  -- | Use Nothing if not using custom rendering
   clayElementDeclarationCustom :: Maybe ClayCustomElementConfig,
+  -- | Use Nothing to disable scrolling
   clayElementDeclarationScroll :: Maybe ClayScrollElementConfig,
+  -- | Use Nothing for no border
   clayElementDeclarationBorder :: Maybe ClayBorderElementConfig,
+  -- | User data pointer (remains Ptr (), use nullPtr for none)
   clayElementDeclarationUserData :: Ptr ()
-}
+} deriving (Eq, Show)
 
 -- Clay allows fields on an element declaration to be unset (zero'd)
 -- so we need special handling for our peek/poke
@@ -1228,48 +1245,73 @@ instance Storable ClayElementDeclaration where
   sizeOf _ = (#size Clay_ElementDeclaration)
   alignment _ = (#size Clay_ElementDeclaration)
   peek ptr = do
-    let idPtr = plusPtr ptr (#offset Clay_ElementDeclaration, id)
-    f1 <- peekMaybe idPtr
+    -- Read Maybe fields using peekMaybe
+    let idPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, id)
+    mId <- peekMaybe idPtr
 
-    f2 <- (#peek Clay_ElementDeclaration, layout) ptr
+    let layoutPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, layout)
+    mLayout <- peekMaybe layoutPtr
 
-    let bgColorPtr = plusPtr ptr (#offset Clay_ElementDeclaration, backgroundColor)
-    f3 <- peekMaybe bgColorPtr
-    
-    let cornerRadiusPtr = plusPtr ptr (#offset Clay_ElementDeclaration, cornerRadius)
-    f4 <- peekMaybe cornerRadiusPtr
-    
-    let imagePtr = plusPtr ptr (#offset Clay_ElementDeclaration, image)
-    f5 <- peekMaybe imagePtr
-    
-    let floatingPtr = plusPtr ptr (#offset Clay_ElementDeclaration, floating)
-    f6 <- peekMaybe floatingPtr
-    
-    let customPtr = plusPtr ptr (#offset Clay_ElementDeclaration, custom)
-    f7 <- peekMaybe customPtr
-    
-    let scrollPtr = plusPtr ptr (#offset Clay_ElementDeclaration, scroll)
-    f8 <- peekMaybe scrollPtr
-    
-    let borderPtr = plusPtr ptr (#offset Clay_ElementDeclaration, border)
-    f9 <- peekMaybe borderPtr
+    let bgColorPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, backgroundColor)
+    mBgColor <- peekMaybe bgColorPtr
 
-    f10 <- (#peek Clay_ElementDeclaration, userData) ptr 
-    pure $ ClayElementDeclaration f1 f2 f3 f4 f5 f6 f7 f8 f9 f10
-  poke ptr (ClayElementDeclaration f1 f2 f3 f4 f5 f6 f7 f8 f9 f10) = do
+    let cornerRadiusPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, cornerRadius)
+    mCornerRadius <- peekMaybe cornerRadiusPtr
+
+    let imagePtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, image)
+    mImage <- peekMaybe imagePtr
+
+    let floatingPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, floating)
+    mFloating <- peekMaybe floatingPtr
+
+    let customPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, custom)
+    mCustom <- peekMaybe customPtr
+
+    let scrollPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, scroll)
+    mScroll <- peekMaybe scrollPtr
+
+    let borderPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, border)
+    mBorder <- peekMaybe borderPtr
+
+    -- Read mandatory fields normally
+    userData <- (#peek Clay_ElementDeclaration, userData) ptr
+
+    pure $ ClayElementDeclaration mId mLayout mBgColor mCornerRadius mImage mFloating mCustom mScroll mBorder userData
+
+  poke ptr (ClayElementDeclaration mId mLayout mBgColor mCornerRadius mImage mFloating mCustom mScroll mBorder userData) = do
+    -- Zero the entire struct first to handle defaults and padding
     zeroMemory ptr (sizeOf (undefined :: ClayElementDeclaration))
 
-    maybe (pure ()) ((#poke Clay_ElementDeclaration, id) ptr) f1
-    (#poke Clay_ElementDeclaration, layout) ptr f2
-    maybe (pure ()) ((#poke Clay_ElementDeclaration, backgroundColor) ptr) f3
-    maybe (pure ()) ((#poke Clay_ElementDeclaration, cornerRadius) ptr) f4
-    maybe (pure ()) ((#poke Clay_ElementDeclaration, image) ptr) f5
-    maybe (pure ()) ((#poke Clay_ElementDeclaration, floating) ptr) f6
-    maybe (pure ()) ((#poke Clay_ElementDeclaration, custom) ptr) f7
-    maybe (pure ()) ((#poke Clay_ElementDeclaration, scroll) ptr) f8
-    maybe (pure ()) ((#poke Clay_ElementDeclaration, border) ptr) f9
-    (#poke Clay_ElementDeclaration, userData) ptr f10
+    -- Poke mandatory fields
+    (#poke Clay_ElementDeclaration, userData) ptr userData
 
+    -- Poke Maybe fields only if they are Just
+    let idPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, id)
+    maybe (pure ()) (poke idPtr) mId
+
+    let layoutPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, layout)
+    maybe (pure ()) (poke layoutPtr) mLayout
+
+    let bgColorPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, backgroundColor)
+    maybe (pure ()) (poke bgColorPtr) mBgColor
+
+    let cornerRadiusPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, cornerRadius)
+    maybe (pure ()) (poke cornerRadiusPtr) mCornerRadius
+
+    let imagePtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, image)
+    maybe (pure ()) (poke imagePtr) mImage
+
+    let floatingPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, floating)
+    maybe (pure ()) (poke floatingPtr) mFloating
+
+    let customPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, custom)
+    maybe (pure ()) (poke customPtr) mCustom
+
+    let scrollPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, scroll)
+    maybe (pure ()) (poke scrollPtr) mScroll
+
+    let borderPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, border)
+    maybe (pure ()) (poke borderPtr) mBorder
 
 newtype ClayErrorType = ClayErrorType CUChar deriving (Eq, Show)
 
@@ -1298,7 +1340,7 @@ instance Storable ClayErrorType where
   sizeOf _ = (#size uint8_t)
   alignment _ = (#alignment uint8_t)
   peek ptr = do
-    val <- peek (castPtr ptr) :: IO CUChar 
+    val <- peek (castPtr ptr) :: IO CUChar
     pure $ (ClayErrorType val)
   poke ptr (ClayErrorType i) = poke (castPtr ptr) i
 
@@ -1335,7 +1377,7 @@ instance Storable ClayErrorHandler where
     f1 <- (#peek Clay_ErrorHandler, errorHandlerFunction) ptr
     f2 <- (#peek Clay_ErrorHandler, userData) ptr
     pure $ ClayErrorHandler f1 f2
-  
+
   poke ptr (ClayErrorHandler f1 f2) = do
     (#poke Clay_ErrorHandler, errorHandlerFunction) ptr f1
     (#poke Clay_ErrorHandler, userData) ptr f2
@@ -1374,8 +1416,8 @@ instance Storable ClayBooleanWarnings where
   poke ptr (ClayBooleanWarnings maxEles maxRend maxText textMes) = do
     (#poke Clay_BooleanWarnings, maxElementsExceeded) ptr maxEles
     (#poke Clay_BooleanWarnings, maxRenderCommandsExceeded) ptr maxRend
-    (#poke Clay_BooleanWarnings, maxTextMeasureCacheExceeded) ptr maxText 
-    (#poke Clay_BooleanWarnings, textMeasurementFunctionNotSet) ptr textMes 
+    (#poke Clay_BooleanWarnings, maxTextMeasureCacheExceeded) ptr maxText
+    (#poke Clay_BooleanWarnings, textMeasurementFunctionNotSet) ptr textMes
 
 data ClayWarning = ClayWarning {
   clayWarningBaseMessage :: ClayString,
@@ -1408,6 +1450,7 @@ instance Storable ClaySharedElementConfig where
     dat <- (#peek Clay_SharedElementConfig, userData) ptr
     pure $ ClaySharedElementConfig bgc crd dat
   poke ptr (ClaySharedElementConfig bgc crd dat) = do
+    -- Rely on parent struct zeroing
     (#poke Clay_SharedElementConfig, backgroundColor) ptr bgc
     (#poke Clay_SharedElementConfig, cornerRadius) ptr crd
     (#poke Clay_SharedElementConfig, userData) ptr dat
@@ -1466,7 +1509,7 @@ instance Storable ClayElementConfigType where
   sizeOf _ = (#size uint8_t)
   alignment _ = (#alignment uint8_t)
   peek ptr = do
-    val <- peek (castPtr ptr) :: IO CUChar 
+    val <- peek (castPtr ptr) :: IO CUChar
     pure $ (ClayElementConfigType val)
   poke ptr (ClayElementConfigType i) = poke (castPtr ptr) i
 
@@ -1475,7 +1518,7 @@ data ClayElementConfigUnion =
   ClayElementConfigImage ClayImageElementConfig |
   ClayElementConfigFloating ClayFloatingElementConfig |
   ClayElementConfigCustom ClayCustomElementConfig |
-  ClayElementConfigScroll ClayScrollElementConfig | 
+  ClayElementConfigScroll ClayScrollElementConfig |
   ClayElementConfigBorder ClayBorderElementConfig |
   ClayElementConfigShared ClaySharedElementConfig |
   ClayElementConfigNone
@@ -1491,19 +1534,19 @@ instance Storable ClayElementConfig where
   peek ptr = do
     t <- (#peek Clay_ElementConfig, type) ptr
     c <- case t of
-            ClayElementConfigTypeText -> 
+            ClayElementConfigTypeText ->
               ClayElementConfigText <$> (#peek Clay_ElementConfig, config) ptr
-            ClayElementConfigTypeImage -> 
+            ClayElementConfigTypeImage ->
               ClayElementConfigImage <$> (#peek Clay_ElementConfig, config) ptr
-            ClayElementConfigTypeFloating -> 
+            ClayElementConfigTypeFloating ->
               ClayElementConfigFloating <$> (#peek Clay_ElementConfig, config) ptr
-            ClayElementConfigTypeCustom -> 
+            ClayElementConfigTypeCustom ->
               ClayElementConfigCustom <$> (#peek Clay_ElementConfig, config) ptr
-            ClayElementConfigTypeScroll -> 
+            ClayElementConfigTypeScroll ->
               ClayElementConfigScroll <$> (#peek Clay_ElementConfig, config) ptr
-            ClayElementConfigTypeBorder -> 
+            ClayElementConfigTypeBorder ->
               ClayElementConfigBorder <$> (#peek Clay_ElementConfig, config) ptr
-            ClayElementConfigTypeShared -> 
+            ClayElementConfigTypeShared ->
               ClayElementConfigShared <$> (#peek Clay_ElementConfig, config) ptr
             _ -> pure ClayElementConfigNone
     pure $ ClayElementConfig t c
@@ -1574,7 +1617,7 @@ instance Storable ClayLayoutElementChildren where
     (#poke Clay__LayoutElementChildren, length) ptr l
 
 data ClayChildrenOrTextContent =
-  ClayChildrenContent ClayLayoutElementChildren | 
+  ClayChildrenContent ClayLayoutElementChildren |
   ClayTextContent (Ptr ClayTextElementData)
 
 data ClayLayoutElement = ClayLayoutElement {
@@ -1631,16 +1674,16 @@ instance Storable ClayLayoutElementWithText where
 
 data ClayScrollContainerDataInternal = ClayScrollContainerDataInternal {
   clayScrollContainerDataInternalLayoutElement :: ClayLayoutElementWithChildren,
-  clayScrollContainerDataInternalBoundingBox :: ClayBoundingBox, 
+  clayScrollContainerDataInternalBoundingBox :: ClayBoundingBox,
   clayScrollContainerDataInternalContentSize :: ClayDimensions,
   clayScrollContainerDataInternalScrollOrigin :: ClayVector2,
   clayScrollContainerDataInternalPointerOrigin :: ClayVector2,
-  clayScrollContainerDataInternalScrollMomentum :: ClayVector2, 
+  clayScrollContainerDataInternalScrollMomentum :: ClayVector2,
   clayScrollContainerDataInternalScrollPosition :: ClayVector2,
   clayScrollContainerDataInternalPreviousDelta :: ClayVector2,
   clayScrollContainerDataInternalMomentumTime :: CFloat,
   clayScrollContainerDataInternalElementId :: CInt,
-  clayScrollContainerDataInternalOpenThisFrame :: CBool, 
+  clayScrollContainerDataInternalOpenThisFrame :: CBool,
   clayScrollContainerDataInternalPointerScrollActive :: CBool
 }
 
@@ -1670,7 +1713,7 @@ instance Storable ClayScrollContainerDataInternal where
     (#poke Clay__ScrollContainerDataInternal, scrollMomentum) ptr f6
     (#poke Clay__ScrollContainerDataInternal, scrollPosition) ptr f7
     (#poke Clay__ScrollContainerDataInternal, previousDelta) ptr f8
-    (#poke Clay__ScrollContainerDataInternal, momentumTime) ptr f9 
+    (#poke Clay__ScrollContainerDataInternal, momentumTime) ptr f9
     (#poke Clay__ScrollContainerDataInternal, elementId) ptr f10
     (#poke Clay__ScrollContainerDataInternal, openThisFrame) ptr f11
     (#poke Clay__ScrollContainerDataInternal, pointerScrollActive) ptr f12
@@ -1717,7 +1760,7 @@ instance Storable ClayLayoutElementHashMapItem where
     f8 <- (#peek Clay_LayoutElementHashMapItem, idAlias) ptr
     f9 <- (#peek Clay_LayoutElementHashMapItem, debugData) ptr
     pure $ ClayLayoutElementHashMapItem f1 f2 f3 f4 f5 f6 f7 f8 f9
-  
+
   poke ptr (ClayLayoutElementHashMapItem f1 f2 f3 f4 f5 f6 f7 f8 f9) = do
     (#poke Clay_LayoutElementHashMapItem, boundingBox) ptr f1
     (#poke Clay_LayoutElementHashMapItem, elementId) ptr f2
@@ -1745,7 +1788,7 @@ instance Storable ClayMeasuredWord where
     f3 <- (#peek Clay__MeasuredWord, width) ptr
     f4 <- (#peek Clay__MeasuredWord, next) ptr
     pure $ ClayMeasuredWord f1 f2 f3 f4
-  
+
   poke ptr (ClayMeasuredWord f1 f2 f3 f4) = do
     (#poke Clay__MeasuredWord, startOffset) ptr f1
     (#poke Clay__MeasuredWord, length) ptr f2
@@ -1773,7 +1816,7 @@ instance Storable ClayMeasureTextCacheItem where
     f5 <- (#peek Clay__MeasureTextCacheItem, nextIndex) ptr
     f6 <- (#peek Clay__MeasureTextCacheItem, generation) ptr
     pure $ ClayMeasureTextCacheItem f1 f2 f3 f4 f5 f6
-  
+
   poke ptr (ClayMeasureTextCacheItem f1 f2 f3 f4 f5 f6) = do
     (#poke Clay__MeasureTextCacheItem, unwrappedDimensions) ptr f1
     (#poke Clay__MeasureTextCacheItem, measuredWordsStartIndex) ptr f2
@@ -1796,7 +1839,7 @@ instance Storable ClayLayoutElementTreeNode where
     f2 <- (#peek Clay__LayoutElementTreeNode, position) ptr
     f3 <- (#peek Clay__LayoutElementTreeNode, nextChildOffset) ptr
     pure $ ClayLayoutElementTreeNode f1 f2 f3
-  
+
   poke ptr (ClayLayoutElementTreeNode f1 f2 f3) = do
     (#poke Clay__LayoutElementTreeNode, layoutElement) ptr f1
     (#poke Clay__LayoutElementTreeNode, position) ptr f2
@@ -1820,7 +1863,7 @@ instance Storable ClayLayoutElementTreeRoot where
     f4 <- (#peek Clay__LayoutElementTreeRoot, zIndex) ptr
     f5 <- (#peek Clay__LayoutElementTreeRoot, pointerOffset) ptr
     pure $ ClayLayoutElementTreeRoot f1 f2 f3 f4 f5
-  
+
   poke ptr (ClayLayoutElementTreeRoot f1 f2 f3 f4 f5) = do
     (#poke Clay__LayoutElementTreeRoot, layoutElementIndex) ptr f1
     (#poke Clay__LayoutElementTreeRoot, parentId) ptr f2
@@ -1947,7 +1990,7 @@ instance Storable ClayContext where
     f53 <- (#peek Clay_Context, dynamicStringData) ptr
     f54 <- (#peek Clay_Context, debugElementData) ptr
     pure $ ClayContext f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50 f51 f52 f53 f54
-  
+
   poke ptr (ClayContext f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 f34 f35 f36 f37 f38 f39 f40 f41 f42 f43 f44 f45 f46 f47 f48 f49 f50 f51 f52 f53 f54) = do
     (#poke Clay_Context, maxElementCount) ptr f1
     (#poke Clay_Context, maxMeasureTextCacheWordCount) ptr f2
