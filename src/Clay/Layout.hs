@@ -1,130 +1,124 @@
 {-# LANGUAGE StrictData #-}
 
-module Clay.Layout (
-  Element (..),
-  element,
-  element_,
-  image,
-  image_,
-  StyleValue (..),
-  toMaybe,
-  Style (..),
-  Axis (..),
-  ElementContext (..),
-  hovered,
-  getStyleValue,
-  getSizing,
-  Color (..),
-  ElementStyle,
-  ElementStyleValues(..),
-  TextStyle,
-  PaddingStyle (..),
-  SizingStyle (..),
-  Sizing (..),
-  SizingBounds (..),
-  LayoutSizeContextVar (..),
-  LayoutSizeValue (..),
-  add,
-  divide,
-  mult,
-  ChildStyle(..),
-  resolveLayoutSizeValue,
-  topToBottom,
-  leftToRight,
-  sub,
-  maxSize,
-  minSize,
-  bounds,
-  fitX,
-  fitX_,
-  fitY,
-  fitY_,
-  fit,
-  fit_,
-  growX,
-  growX_,
-  growY,
-  growY_,
-  grow,
-  grow_,
-  percentX,
-  percentY,
-  percentXY,
-  percent,
-  fixedX,
-  fixedY,
-  fixedXY,
-  fixed,
-  paddingTop,
-  paddingRight,
-  paddingBottom,
-  paddingLeft,
-  paddingY,
-  paddingX,
-  padding,
-  paddingAll,
-  XAlignment (..),
-  YAlignment (..),
-  childAlignX,
-  childAlignY,
-  childGap,
-  borderBottomWidth,
-  borderBottomColor,
-  borderBottom,
-  borderTopWidth,
-  borderTopColor,
-  borderTop,
-  borderYWidth,
-  borderYColor,
-  borderY,
-  borderRightWidth,
-  borderRightColor,
-  borderRight,
-  borderLeftWidth,
-  borderLeftColor,
-  borderLeft,
-  borderXWidth,
-  borderXColor,
-  borderX,
-  borderColor,
-  borderWidth,
-  border,
-  -- onHover,
-  text,
-  font,
-  textColor,
-  fontSize,
-)
+module Clay.Layout
+  ( Element (..),
+    element,
+    element_,
+    image,
+    image_,
+    StyleValue (..),
+    toMaybe,
+    Style (..),
+    Axis (..),
+    hovered,
+    Color (..),
+    ElementStyle,
+    ElementStyleValues (..),
+    TextStyle,
+    PaddingStyle (..),
+    SizingStyle (..),
+    Sizing (..),
+    SizingBounds (..),
+    LayoutSizeContextVar (..),
+    LayoutSizeValue (..),
+    add,
+    divide,
+    mult,
+    ChildStyle (..),
+    topToBottom,
+    leftToRight,
+    sub,
+    maxSize,
+    minSize,
+    bounds,
+    fitX,
+    fitX_,
+    fitY,
+    fitY_,
+    fit,
+    fit_,
+    growX,
+    growX_,
+    growY,
+    growY_,
+    grow,
+    grow_,
+    percentX,
+    percentY,
+    percentXY,
+    percent,
+    fixedX,
+    fixedY,
+    fixedXY,
+    fixed,
+    paddingTop,
+    paddingRight,
+    paddingBottom,
+    paddingLeft,
+    paddingY,
+    paddingX,
+    padding,
+    paddingAll,
+    XAlignment (..),
+    YAlignment (..),
+    childAlignX,
+    childAlignY,
+    childGap,
+    borderBottomWidth,
+    borderBottomColor,
+    borderBottom,
+    borderTopWidth,
+    borderTopColor,
+    borderTop,
+    borderYWidth,
+    borderYColor,
+    borderY,
+    borderRightWidth,
+    borderRightColor,
+    borderRight,
+    borderLeftWidth,
+    borderLeftColor,
+    borderLeft,
+    borderXWidth,
+    borderXColor,
+    borderX,
+    borderColor,
+    borderWidth,
+    border,
+    -- onHover,
+    text,
+    font,
+    textColor,
+    fontSize,
+  )
 where
 
 import Data.Text
 
-{- | e is the type of event the element can produce
-f is the font
-i is the image
--}
+-- | e is the type of event the element can produce
+-- f is the font
+-- i is the image
 data Element e f i
   = Element
-      { elementId :: Maybe Text
-      , elementStyle :: ElementStyle
-      , elementChildren :: [Element e f i]
+      { elementId :: Maybe Text,
+        elementStyle :: ElementStyle,
+        elementChildren :: [Element e f i]
       }
   | TextElement
-      { textElementStyle :: TextStyle f
-      , textElementText :: Text
+      { textElementStyle :: TextStyle f,
+        textElementText :: Text
       }
   | ImageElement
-      { imageElementId :: Maybe Text
-      , imageElementImage :: i
-      , imageElementStyle :: ElementStyle
+      { imageElementId :: Maybe Text,
+        imageElementImage :: i,
+        imageElementStyle :: ElementStyle
       }
 
-data Color
-  = Color
-  { colorR :: Int
-  , colorG :: Int
-  , colorB :: Int
-  , colorA :: Int
+data Color = Color
+  { colorR :: Int,
+    colorG :: Int,
+    colorB :: Int,
+    colorA :: Int
   }
   deriving (Eq, Show)
 
@@ -172,25 +166,6 @@ mult = MultiplyVar
 divide :: LayoutSizeContextVar -> Int -> LayoutSizeValue
 divide = DivideVar
 
-resolveLayoutSizeValue :: ElementContext -> LayoutSizeValue -> Float
-resolveLayoutSizeValue ElementContext{elementContextViewSize = (viewWidth, viewHeight)} v = case v of
-  Pixels i -> fromIntegral i
-  Var ViewHeight -> fromIntegral viewHeight
-  Var ViewWidth -> fromIntegral viewWidth
-  AddVar ViewHeight i -> fromIntegral $ viewHeight + i
-  AddVar ViewWidth i -> fromIntegral $ viewWidth + i
-  SubtractVar ViewHeight i -> fromIntegral $ viewHeight - i
-  SubtractVar ViewWidth i -> fromIntegral $ viewWidth - i
-  MultiplyVar ViewHeight i -> fromIntegral $ viewHeight * i
-  MultiplyVar ViewWidth i -> fromIntegral $ viewWidth * i
-  DivideVar ViewHeight i -> fromIntegral viewHeight / fromIntegral i
-  DivideVar ViewWidth i -> fromIntegral viewWidth / fromIntegral i
-
-data ElementContext = ElementContext
-  { elementContextIsHovered :: Bool
-  , elementContextViewSize :: (Int, Int)
-  }
-
 toMaybe :: StyleValue a -> Maybe a
 toMaybe (StyleValue a) = Just a
 toMaybe Default = Nothing
@@ -212,24 +187,15 @@ hovered :: (Monoid a) => Style a -> Style a
 hovered (Style h b) = Style (h <> b) mempty
 
 type ElementStyle = Style ElementStyleValues
+
 type TextStyle f = Style (TextStyleValues f)
 
-getStyleValue ::
-  (Semigroup a) =>
-  Style a ->
-  ElementContext ->
-  (a -> StyleValue b) ->
-  StyleValue b
-getStyleValue (Style h b) (ElementContext isHovered _) f =
-  let derivedStyle = if isHovered then b <> h else b
-   in f derivedStyle
-
 data ElementStyleValues = ElementStyleValues
-  { styleDirection :: DirectionStyle
-  , styleSizing :: SizingStyle
-  , stylePadding :: PaddingStyle
-  , styleChild :: ChildStyle
-  , styleBorder :: BorderStyle
+  { styleDirection :: DirectionStyle,
+    styleSizing :: SizingStyle,
+    stylePadding :: PaddingStyle,
+    styleChild :: ChildStyle,
+    styleBorder :: BorderStyle
   }
   deriving (Eq, Show)
 
@@ -242,11 +208,6 @@ instance Monoid ElementStyleValues where
   mempty = ElementStyleValues mempty mempty mempty mempty mempty
 
 data Axis = XAxis | YAxis deriving (Eq, Show)
-
-getSizing :: ElementStyle -> ElementContext -> Axis -> StyleValue Sizing
-getSizing style ctx axis = getStyleValue style ctx (getAxis . styleSizing)
- where
-  getAxis = if axis == XAxis then sizingStyleXAxis else sizingStyleYAxis
 
 -- * Layout
 
@@ -266,16 +227,16 @@ instance Monoid DirectionStyle where
 data LayoutDirection = LeftToRight | TopToBottom deriving (Eq, Show)
 
 topToBottom :: ElementStyle
-topToBottom = base $ mempty{styleDirection = mempty{directionStyleDirection = StyleValue TopToBottom}}
+topToBottom = base $ mempty {styleDirection = mempty {directionStyleDirection = StyleValue TopToBottom}}
 
 leftToRight :: ElementStyle
-leftToRight = base $ mempty{styleDirection = mempty{directionStyleDirection = StyleValue LeftToRight}}
+leftToRight = base $ mempty {styleDirection = mempty {directionStyleDirection = StyleValue LeftToRight}}
 
 -- ** Sizing
 
 data SizingStyle = SizingStyle
-  { sizingStyleXAxis :: StyleValue Sizing
-  , sizingStyleYAxis :: StyleValue Sizing
+  { sizingStyleXAxis :: StyleValue Sizing,
+    sizingStyleYAxis :: StyleValue Sizing
   }
   deriving (Eq, Show)
 
@@ -286,13 +247,13 @@ instance Semigroup SizingStyle where
 instance Monoid SizingStyle where
   mempty =
     SizingStyle
-      { sizingStyleXAxis = mempty
-      , sizingStyleYAxis = mempty
+      { sizingStyleXAxis = mempty,
+        sizingStyleYAxis = mempty
       }
 
 data SizingBounds = SizingBounds
-  { sizingBoundsMax :: StyleValue LayoutSizeValue
-  , sizingBoundsMin :: StyleValue LayoutSizeValue
+  { sizingBoundsMax :: StyleValue LayoutSizeValue,
+    sizingBoundsMin :: StyleValue LayoutSizeValue
   }
   deriving (Eq, Show)
 
@@ -304,10 +265,10 @@ instance Monoid SizingBounds where
   mempty = SizingBounds mempty mempty
 
 minSize :: LayoutSizeValue -> SizingBounds
-minSize v = mempty{sizingBoundsMax = StyleValue v}
+minSize v = mempty {sizingBoundsMax = StyleValue v}
 
 maxSize :: LayoutSizeValue -> SizingBounds
-maxSize v = mempty{sizingBoundsMin = StyleValue v}
+maxSize v = mempty {sizingBoundsMin = StyleValue v}
 
 -- | min max
 bounds :: LayoutSizeValue -> LayoutSizeValue -> SizingBounds
@@ -451,10 +412,10 @@ fixedXY x y = fixedX x <> fixedY y
 -- ** Padding
 
 data PaddingStyle = PaddingStyle
-  { paddingStyleTop :: StyleValue Int
-  , paddingStyleRight :: StyleValue Int
-  , paddingStyleBottom :: StyleValue Int
-  , paddingStyleLeft :: StyleValue Int
+  { paddingStyleTop :: StyleValue Int,
+    paddingStyleRight :: StyleValue Int,
+    paddingStyleBottom :: StyleValue Int,
+    paddingStyleLeft :: StyleValue Int
   }
   deriving (Eq, Show)
 
@@ -466,22 +427,22 @@ instance Monoid PaddingStyle where
   mempty = PaddingStyle mempty mempty mempty mempty
 
 paddingTop :: Int -> ElementStyle
-paddingTop value = base $ mempty{stylePadding = mempty{paddingStyleTop = StyleValue value}}
+paddingTop value = base $ mempty {stylePadding = mempty {paddingStyleTop = StyleValue value}}
 
 paddingRight :: Int -> ElementStyle
-paddingRight value = base $ mempty{stylePadding = mempty{paddingStyleRight = StyleValue value}}
+paddingRight value = base $ mempty {stylePadding = mempty {paddingStyleRight = StyleValue value}}
 
 paddingBottom :: Int -> ElementStyle
-paddingBottom value = base $ mempty{stylePadding = mempty{paddingStyleBottom = StyleValue value}}
+paddingBottom value = base $ mempty {stylePadding = mempty {paddingStyleBottom = StyleValue value}}
 
 paddingLeft :: Int -> ElementStyle
-paddingLeft value = base $ mempty{stylePadding = mempty{paddingStyleLeft = StyleValue value}}
+paddingLeft value = base $ mempty {stylePadding = mempty {paddingStyleLeft = StyleValue value}}
 
 paddingY :: Int -> ElementStyle
-paddingY value = base $ mempty{stylePadding = mempty{paddingStyleTop = StyleValue value, paddingStyleBottom = StyleValue value}}
+paddingY value = base $ mempty {stylePadding = mempty {paddingStyleTop = StyleValue value, paddingStyleBottom = StyleValue value}}
 
 paddingX :: Int -> ElementStyle
-paddingX value = base $ mempty{stylePadding = mempty{paddingStyleLeft = StyleValue value, paddingStyleRight = StyleValue value}}
+paddingX value = base $ mempty {stylePadding = mempty {paddingStyleLeft = StyleValue value, paddingStyleRight = StyleValue value}}
 
 -- | Specified in clockwise order from the top
 padding :: Int -> Int -> Int -> Int -> ElementStyle
@@ -499,12 +460,13 @@ paddingAll p =
     <> paddingLeft p
 
 data XAlignment = AlignCenter | AlignLeft | AlignRight deriving (Eq, Show)
+
 data YAlignment = AlignMiddle | AlignTop | AlignBottom deriving (Eq, Show)
 
 data ChildStyle = ChildStyle
-  { childStyleChildAlignX :: StyleValue XAlignment
-  , childStyleChildAlignY :: StyleValue YAlignment
-  , childStyleChildGap :: StyleValue Int
+  { childStyleChildAlignX :: StyleValue XAlignment,
+    childStyleChildAlignY :: StyleValue YAlignment,
+    childStyleChildGap :: StyleValue Int
   }
   deriving (Eq, Show)
 
@@ -516,18 +478,18 @@ instance Monoid ChildStyle where
   mempty = ChildStyle mempty mempty mempty
 
 childGap :: Int -> ElementStyle
-childGap i = base $ mempty{styleChild = mempty{childStyleChildGap = StyleValue i}}
+childGap i = base $ mempty {styleChild = mempty {childStyleChildGap = StyleValue i}}
 
 childAlignX :: XAlignment -> ElementStyle
-childAlignX a = base $ mempty{styleChild = mempty{childStyleChildAlignX = StyleValue a}}
+childAlignX a = base $ mempty {styleChild = mempty {childStyleChildAlignX = StyleValue a}}
 
 childAlignY :: YAlignment -> ElementStyle
-childAlignY a = base $ mempty{styleChild = mempty{childStyleChildAlignY = StyleValue a}}
+childAlignY a = base $ mempty {styleChild = mempty {childStyleChildAlignY = StyleValue a}}
 
 -- | * Border
 data BorderSideStyle = BorderSideStyle
-  { borderSideStyleWidth :: StyleValue Int
-  , borderSideStyleColor :: StyleValue Color
+  { borderSideStyleWidth :: StyleValue Int,
+    borderSideStyleColor :: StyleValue Color
   }
   deriving (Eq, Show)
 
@@ -539,10 +501,10 @@ instance Monoid BorderSideStyle where
   mempty = BorderSideStyle mempty mempty
 
 data BorderStyle = BorderStyle
-  { borderStyleTop :: BorderSideStyle
-  , borderStyleBottom :: BorderSideStyle
-  , borderStyleRight :: BorderSideStyle
-  , borderStyleLeft :: BorderSideStyle
+  { borderStyleTop :: BorderSideStyle,
+    borderStyleBottom :: BorderSideStyle,
+    borderStyleRight :: BorderSideStyle,
+    borderStyleLeft :: BorderSideStyle
   }
   deriving (Eq, Show)
 
@@ -559,7 +521,7 @@ borderTopWidth i =
     mempty
       { styleBorder =
           mempty
-            { borderStyleTop = mempty{borderSideStyleWidth = StyleValue i}
+            { borderStyleTop = mempty {borderSideStyleWidth = StyleValue i}
             }
       }
 
@@ -569,7 +531,7 @@ borderTopColor c =
     mempty
       { styleBorder =
           mempty
-            { borderStyleTop = mempty{borderSideStyleColor = StyleValue c}
+            { borderStyleTop = mempty {borderSideStyleColor = StyleValue c}
             }
       }
 
@@ -582,7 +544,7 @@ borderBottomWidth i =
     mempty
       { styleBorder =
           mempty
-            { borderStyleBottom = mempty{borderSideStyleWidth = StyleValue i}
+            { borderStyleBottom = mempty {borderSideStyleWidth = StyleValue i}
             }
       }
 
@@ -592,7 +554,7 @@ borderBottomColor c =
     mempty
       { styleBorder =
           mempty
-            { borderStyleBottom = mempty{borderSideStyleColor = StyleValue c}
+            { borderStyleBottom = mempty {borderSideStyleColor = StyleValue c}
             }
       }
 
@@ -614,7 +576,7 @@ borderRightWidth i =
     mempty
       { styleBorder =
           mempty
-            { borderStyleRight = mempty{borderSideStyleWidth = StyleValue i}
+            { borderStyleRight = mempty {borderSideStyleWidth = StyleValue i}
             }
       }
 
@@ -624,7 +586,7 @@ borderRightColor c =
     mempty
       { styleBorder =
           mempty
-            { borderStyleRight = mempty{borderSideStyleColor = StyleValue c}
+            { borderStyleRight = mempty {borderSideStyleColor = StyleValue c}
             }
       }
 
@@ -637,7 +599,7 @@ borderLeftWidth i =
     mempty
       { styleBorder =
           mempty
-            { borderStyleLeft = mempty{borderSideStyleWidth = StyleValue i}
+            { borderStyleLeft = mempty {borderSideStyleWidth = StyleValue i}
             }
       }
 
@@ -647,7 +609,7 @@ borderLeftColor c =
     mempty
       { styleBorder =
           mempty
-            { borderStyleLeft = mempty{borderSideStyleColor = StyleValue c}
+            { borderStyleLeft = mempty {borderSideStyleColor = StyleValue c}
             }
       }
 
@@ -682,9 +644,9 @@ text :: TextStyle f -> Text -> Element e f i
 text = TextElement
 
 data TextStyleValues f = TextStyleValues
-  { textStyleTextColor :: StyleValue Color
-  , textStyleFont :: StyleValue f
-  , textStyleFontSize :: StyleValue Int
+  { textStyleTextColor :: StyleValue Color,
+    textStyleFont :: StyleValue f,
+    textStyleFontSize :: StyleValue Int
   }
   deriving (Eq, Show)
 
@@ -696,10 +658,10 @@ instance Monoid (TextStyleValues f) where
   mempty = TextStyleValues mempty mempty mempty
 
 font :: f -> TextStyle f
-font f = base $ mempty{textStyleFont = StyleValue f}
+font f = base $ mempty {textStyleFont = StyleValue f}
 
 textColor :: Color -> TextStyle f
-textColor c = base $ mempty{textStyleTextColor = StyleValue c}
+textColor c = base $ mempty {textStyleTextColor = StyleValue c}
 
 fontSize :: Int -> TextStyle f
-fontSize s = base $ mempty{textStyleFontSize = StyleValue s}
+fontSize s = base $ mempty {textStyleFontSize = StyleValue s}
