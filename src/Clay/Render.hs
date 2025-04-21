@@ -17,7 +17,6 @@ import Clay.Raw
 import Clay.Raw.Types
 import Control.Monad.IO.Class
 import Control.Monad.RWS.Strict (MonadReader (ask), RWST (runRWST), asks)
-import Control.Monad.State.Class
 import Data.Text
 import Foreign.C.Types
 import Foreign.Ptr (Ptr)
@@ -113,8 +112,8 @@ calculateClayElementId parentId ele = do
 
 getStyleValue :: (ElementStyleValues -> StyleValue b) -> Declaration e f i (Maybe b)
 getStyleValue f = do
-  style <- elementStyle . declarationContextElement <$> ask
-  isHovered <- declarationContextIsHovered <$> ask
+  style <- asks $ elementStyle . declarationContextElement
+  isHovered <- asks declarationContextIsHovered
   let baseValue = (f . styleBase) style
   let hoveredValue = (f . styleHovered) style
   pure $
@@ -162,10 +161,16 @@ getClayElementId :: Declaration e f i (Maybe ClayElementId)
 getClayElementId = asks declarationContextElementId
 
 getClayLayoutConfig :: Declaration e f i (Maybe ClayLayoutConfig)
-getClayLayoutConfig = undefined
+getClayLayoutConfig =
+  ClayLayoutConfig
+    <$> getClayLayoutConfigSizing
+    <*> getClayLayoutConfigPadding
+    <*> getClayLayoutConfigChildGap
+    <*> getClayLayoutConfigChildAlignment
+    <*> getClayLayoutCOnfigLayoutDirection
 
 getClayBackgroundColor :: Declaration e f i (Maybe ClayColor)
-getClayBackgroundColor = undefined
+getClayBackgroundColor = getStyleValue styleBackgroundColor
 
 getClayCornerRadius :: Declaration e f i (Maybe ClayCornerRadius)
 getClayCornerRadius = undefined

@@ -20,8 +20,10 @@ library
     import:           warnings
     exposed-modules:  
         Clay,
-        Clay.Render,
         Clay.Layout,
+        Clay.Layout.Config,
+        Clay.Render,
+        Clay.Render.Renderer,
         Clay.Raw,
         Clay.Raw.Types 
     other-modules:

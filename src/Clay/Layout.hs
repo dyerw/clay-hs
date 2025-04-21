@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE StrictData #-}
 
 module Clay.Layout
@@ -6,8 +8,6 @@ module Clay.Layout
     element_,
     image,
     image_,
-    StyleValue (..),
-    toMaybe,
     Style (..),
     Axis (..),
     hovered,
@@ -93,7 +93,9 @@ module Clay.Layout
   )
 where
 
+import Clay.Layout.Config
 import Data.Text
+import GHC.Generics (Generic)
 
 -- | e is the type of event the element can produce
 -- f is the font
@@ -134,15 +136,6 @@ image eid = ImageElement (Just eid)
 image_ :: i -> ElementStyle -> Element e f i
 image_ = ImageElement Nothing
 
-data StyleValue a = StyleValue a | Default deriving (Eq, Show)
-
-instance Semigroup (StyleValue a) where
-  sva <> Default = sva
-  _ <> svb = svb
-
-instance Monoid (StyleValue a) where
-  mempty = Default
-
 data LayoutSizeContextVar = ViewHeight | ViewWidth deriving (Eq, Show)
 
 data LayoutSizeValue
@@ -166,19 +159,10 @@ mult = MultiplyVar
 divide :: LayoutSizeContextVar -> Int -> LayoutSizeValue
 divide = DivideVar
 
-toMaybe :: StyleValue a -> Maybe a
-toMaybe (StyleValue a) = Just a
-toMaybe Default = Nothing
-
 data Style a = Style
   {styleHovered :: a, styleBase :: a}
-
-instance (Semigroup a) => Semigroup (Style a) where
-  (Style hovered1 base1) <> (Style hovered2 base2) =
-    Style (hovered1 <> hovered2) (base1 <> base2)
-
-instance (Monoid a) => Monoid (Style a) where
-  mempty = Style mempty mempty
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config (Style a))
 
 base :: (Monoid a) => a -> Style a
 base = Style mempty
@@ -195,17 +179,12 @@ data ElementStyleValues = ElementStyleValues
     styleSizing :: SizingStyle,
     stylePadding :: PaddingStyle,
     styleChild :: ChildStyle,
-    styleBorder :: BorderStyle
+    styleBorder :: BorderStyle,
+    styleBackgroundColor :: ConfigValue Color,
+    styleCornerRadius :: ConfigValue Int
   }
-  deriving (Eq, Show)
-
--- TODO: Look into deriving these product Monoids with generics
-instance Semigroup ElementStyleValues where
-  ElementStyleValues a1 a2 a3 a4 a5 <> ElementStyleValues b1 b2 b3 b4 b5 =
-    ElementStyleValues (a1 <> b1) (a2 <> b2) (a3 <> b3) (a4 <> b4) (a5 <> b5)
-
-instance Monoid ElementStyleValues where
-  mempty = ElementStyleValues mempty mempty mempty mempty mempty
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config ElementStyleValues)
 
 data Axis = XAxis | YAxis deriving (Eq, Show)
 
@@ -214,61 +193,40 @@ data Axis = XAxis | YAxis deriving (Eq, Show)
 -- ** Direction
 
 newtype DirectionStyle = DirectionStyle
-  { directionStyleDirection :: StyleValue LayoutDirection
+  { directionStyleDirection :: ConfigValue LayoutDirection
   }
-  deriving (Eq, Show)
-
-instance Semigroup DirectionStyle where
-  (DirectionStyle d1) <> (DirectionStyle d2) = DirectionStyle (d1 <> d2)
-
-instance Monoid DirectionStyle where
-  mempty = DirectionStyle mempty
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config DirectionStyle)
 
 data LayoutDirection = LeftToRight | TopToBottom deriving (Eq, Show)
 
 topToBottom :: ElementStyle
-topToBottom = base $ mempty {styleDirection = mempty {directionStyleDirection = StyleValue TopToBottom}}
+topToBottom = base $ mempty {styleDirection = mempty {directionStyleDirection = configValue TopToBottom}}
 
 leftToRight :: ElementStyle
-leftToRight = base $ mempty {styleDirection = mempty {directionStyleDirection = StyleValue LeftToRight}}
+leftToRight = base $ mempty {styleDirection = mempty {directionStyleDirection = configValue LeftToRight}}
 
 -- ** Sizing
 
 data SizingStyle = SizingStyle
-  { sizingStyleXAxis :: StyleValue Sizing,
-    sizingStyleYAxis :: StyleValue Sizing
+  { sizingStyleXAxis :: ConfigValue Sizing,
+    sizingStyleYAxis :: ConfigValue Sizing
   }
-  deriving (Eq, Show)
-
-instance Semigroup SizingStyle where
-  SizingStyle xAxis1 yAxis1 <> SizingStyle xAxis2 yAxis2 =
-    SizingStyle (xAxis1 <> xAxis2) (yAxis1 <> yAxis2)
-
-instance Monoid SizingStyle where
-  mempty =
-    SizingStyle
-      { sizingStyleXAxis = mempty,
-        sizingStyleYAxis = mempty
-      }
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config SizingStyle)
 
 data SizingBounds = SizingBounds
-  { sizingBoundsMax :: StyleValue LayoutSizeValue,
-    sizingBoundsMin :: StyleValue LayoutSizeValue
+  { sizingBoundsMax :: ConfigValue LayoutSizeValue,
+    sizingBoundsMin :: ConfigValue LayoutSizeValue
   }
-  deriving (Eq, Show)
-
-instance Semigroup SizingBounds where
-  (SizingBounds max1 min1) <> (SizingBounds max2 min2) =
-    SizingBounds (max1 <> max2) (min1 <> min2)
-
-instance Monoid SizingBounds where
-  mempty = SizingBounds mempty mempty
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config SizingBounds)
 
 minSize :: LayoutSizeValue -> SizingBounds
-minSize v = mempty {sizingBoundsMax = StyleValue v}
+minSize v = mempty {sizingBoundsMax = configValue v}
 
 maxSize :: LayoutSizeValue -> SizingBounds
-maxSize v = mempty {sizingBoundsMin = StyleValue v}
+maxSize v = mempty {sizingBoundsMin = configValue v}
 
 -- | min max
 bounds :: LayoutSizeValue -> LayoutSizeValue -> SizingBounds
@@ -282,7 +240,7 @@ fitX b =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleXAxis = StyleValue $ Fit b
+            { sizingStyleXAxis = configValue $ Fit b
             }
       }
 
@@ -292,7 +250,7 @@ fitX_ =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleXAxis = StyleValue $ Fit mempty
+            { sizingStyleXAxis = configValue $ Fit mempty
             }
       }
 
@@ -302,7 +260,7 @@ fitY b =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleYAxis = StyleValue $ Fit b
+            { sizingStyleYAxis = configValue $ Fit b
             }
       }
 
@@ -313,7 +271,7 @@ fitY_ =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleYAxis = StyleValue $ Fit mempty
+            { sizingStyleYAxis = configValue $ Fit mempty
             }
       }
 
@@ -331,7 +289,7 @@ growX b =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleXAxis = StyleValue $ Grow b
+            { sizingStyleXAxis = configValue $ Grow b
             }
       }
 
@@ -344,7 +302,7 @@ growY b =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleYAxis = StyleValue $ Grow b
+            { sizingStyleYAxis = configValue $ Grow b
             }
       }
 
@@ -363,7 +321,7 @@ percentX x =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleXAxis = StyleValue (Percent x)
+            { sizingStyleXAxis = configValue (Percent x)
             }
       }
 
@@ -373,7 +331,7 @@ percentY y =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleYAxis = StyleValue (Percent y)
+            { sizingStyleYAxis = configValue (Percent y)
             }
       }
 
@@ -389,7 +347,7 @@ fixedX x =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleXAxis = StyleValue (Fixed x)
+            { sizingStyleXAxis = configValue (Fixed x)
             }
       }
 
@@ -399,7 +357,7 @@ fixedY y =
     mempty
       { styleSizing =
           mempty
-            { sizingStyleYAxis = StyleValue (Fixed y)
+            { sizingStyleYAxis = configValue (Fixed y)
             }
       }
 
@@ -412,37 +370,34 @@ fixedXY x y = fixedX x <> fixedY y
 -- ** Padding
 
 data PaddingStyle = PaddingStyle
-  { paddingStyleTop :: StyleValue Int,
-    paddingStyleRight :: StyleValue Int,
-    paddingStyleBottom :: StyleValue Int,
-    paddingStyleLeft :: StyleValue Int
+  { paddingStyleTop :: ConfigValue Int,
+    paddingStyleRight :: ConfigValue Int,
+    paddingStyleBottom :: ConfigValue Int,
+    paddingStyleLeft :: ConfigValue Int
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config PaddingStyle)
 
-instance Semigroup PaddingStyle where
-  (PaddingStyle top1 right1 bottom1 left1) <> (PaddingStyle top2 right2 bottom2 left2) =
-    PaddingStyle (top1 <> top2) (right1 <> right2) (bottom1 <> bottom2) (left1 <> left2)
-
-instance Monoid PaddingStyle where
-  mempty = PaddingStyle mempty mempty mempty mempty
+paddingStyle :: PaddingStyle -> ElementStyle
+paddingStyle ps = base $ mempty {stylePadding = ps}
 
 paddingTop :: Int -> ElementStyle
-paddingTop value = base $ mempty {stylePadding = mempty {paddingStyleTop = StyleValue value}}
+paddingTop value = paddingStyle $ mempty {paddingStyleTop = configValue value}
 
 paddingRight :: Int -> ElementStyle
-paddingRight value = base $ mempty {stylePadding = mempty {paddingStyleRight = StyleValue value}}
+paddingRight value = base $ mempty {stylePadding = mempty {paddingStyleRight = configValue value}}
 
 paddingBottom :: Int -> ElementStyle
-paddingBottom value = base $ mempty {stylePadding = mempty {paddingStyleBottom = StyleValue value}}
+paddingBottom value = base $ mempty {stylePadding = mempty {paddingStyleBottom = configValue value}}
 
 paddingLeft :: Int -> ElementStyle
-paddingLeft value = base $ mempty {stylePadding = mempty {paddingStyleLeft = StyleValue value}}
+paddingLeft value = base $ mempty {stylePadding = mempty {paddingStyleLeft = configValue value}}
 
 paddingY :: Int -> ElementStyle
-paddingY value = base $ mempty {stylePadding = mempty {paddingStyleTop = StyleValue value, paddingStyleBottom = StyleValue value}}
+paddingY value = base $ mempty {stylePadding = mempty {paddingStyleTop = configValue value, paddingStyleBottom = configValue value}}
 
 paddingX :: Int -> ElementStyle
-paddingX value = base $ mempty {stylePadding = mempty {paddingStyleLeft = StyleValue value, paddingStyleRight = StyleValue value}}
+paddingX value = base $ mempty {stylePadding = mempty {paddingStyleLeft = configValue value, paddingStyleRight = configValue value}}
 
 -- | Specified in clockwise order from the top
 padding :: Int -> Int -> Int -> Int -> ElementStyle
@@ -464,41 +419,29 @@ data XAlignment = AlignCenter | AlignLeft | AlignRight deriving (Eq, Show)
 data YAlignment = AlignMiddle | AlignTop | AlignBottom deriving (Eq, Show)
 
 data ChildStyle = ChildStyle
-  { childStyleChildAlignX :: StyleValue XAlignment,
-    childStyleChildAlignY :: StyleValue YAlignment,
-    childStyleChildGap :: StyleValue Int
+  { childStyleChildAlignX :: ConfigValue XAlignment,
+    childStyleChildAlignY :: ConfigValue YAlignment,
+    childStyleChildGap :: ConfigValue Int
   }
-  deriving (Eq, Show)
-
-instance Semigroup ChildStyle where
-  (ChildStyle cax1 cay1 g1) <> (ChildStyle cax2 cay2 g2) =
-    ChildStyle (cax1 <> cax2) (cay1 <> cay2) (g1 <> g2)
-
-instance Monoid ChildStyle where
-  mempty = ChildStyle mempty mempty mempty
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config ChildStyle)
 
 childGap :: Int -> ElementStyle
-childGap i = base $ mempty {styleChild = mempty {childStyleChildGap = StyleValue i}}
+childGap i = base $ mempty {styleChild = mempty {childStyleChildGap = configValue i}}
 
 childAlignX :: XAlignment -> ElementStyle
-childAlignX a = base $ mempty {styleChild = mempty {childStyleChildAlignX = StyleValue a}}
+childAlignX a = base $ mempty {styleChild = mempty {childStyleChildAlignX = configValue a}}
 
 childAlignY :: YAlignment -> ElementStyle
-childAlignY a = base $ mempty {styleChild = mempty {childStyleChildAlignY = StyleValue a}}
+childAlignY a = base $ mempty {styleChild = mempty {childStyleChildAlignY = configValue a}}
 
 -- | * Border
 data BorderSideStyle = BorderSideStyle
-  { borderSideStyleWidth :: StyleValue Int,
-    borderSideStyleColor :: StyleValue Color
+  { borderSideStyleWidth :: ConfigValue Int,
+    borderSideStyleColor :: ConfigValue Color
   }
-  deriving (Eq, Show)
-
-instance Semigroup BorderSideStyle where
-  (BorderSideStyle w1 c1) <> (BorderSideStyle w2 c2) =
-    BorderSideStyle (w1 <> w2) (c1 <> c2)
-
-instance Monoid BorderSideStyle where
-  mempty = BorderSideStyle mempty mempty
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config BorderSideStyle)
 
 data BorderStyle = BorderStyle
   { borderStyleTop :: BorderSideStyle,
@@ -506,14 +449,8 @@ data BorderStyle = BorderStyle
     borderStyleRight :: BorderSideStyle,
     borderStyleLeft :: BorderSideStyle
   }
-  deriving (Eq, Show)
-
-instance Semigroup BorderStyle where
-  (BorderStyle t1 b1 r1 l1) <> (BorderStyle t2 b2 r2 l2) =
-    BorderStyle (t1 <> t2) (b1 <> b2) (r1 <> r2) (l1 <> l2)
-
-instance Monoid BorderStyle where
-  mempty = BorderStyle mempty mempty mempty mempty
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config BorderStyle)
 
 borderTopWidth :: Int -> ElementStyle
 borderTopWidth i =
@@ -521,7 +458,7 @@ borderTopWidth i =
     mempty
       { styleBorder =
           mempty
-            { borderStyleTop = mempty {borderSideStyleWidth = StyleValue i}
+            { borderStyleTop = mempty {borderSideStyleWidth = configValue i}
             }
       }
 
@@ -531,7 +468,7 @@ borderTopColor c =
     mempty
       { styleBorder =
           mempty
-            { borderStyleTop = mempty {borderSideStyleColor = StyleValue c}
+            { borderStyleTop = mempty {borderSideStyleColor = configValue c}
             }
       }
 
@@ -544,7 +481,7 @@ borderBottomWidth i =
     mempty
       { styleBorder =
           mempty
-            { borderStyleBottom = mempty {borderSideStyleWidth = StyleValue i}
+            { borderStyleBottom = mempty {borderSideStyleWidth = configValue i}
             }
       }
 
@@ -554,7 +491,7 @@ borderBottomColor c =
     mempty
       { styleBorder =
           mempty
-            { borderStyleBottom = mempty {borderSideStyleColor = StyleValue c}
+            { borderStyleBottom = mempty {borderSideStyleColor = configValue c}
             }
       }
 
@@ -576,7 +513,7 @@ borderRightWidth i =
     mempty
       { styleBorder =
           mempty
-            { borderStyleRight = mempty {borderSideStyleWidth = StyleValue i}
+            { borderStyleRight = mempty {borderSideStyleWidth = configValue i}
             }
       }
 
@@ -586,7 +523,7 @@ borderRightColor c =
     mempty
       { styleBorder =
           mempty
-            { borderStyleRight = mempty {borderSideStyleColor = StyleValue c}
+            { borderStyleRight = mempty {borderSideStyleColor = configValue c}
             }
       }
 
@@ -599,7 +536,7 @@ borderLeftWidth i =
     mempty
       { styleBorder =
           mempty
-            { borderStyleLeft = mempty {borderSideStyleWidth = StyleValue i}
+            { borderStyleLeft = mempty {borderSideStyleWidth = configValue i}
             }
       }
 
@@ -609,7 +546,7 @@ borderLeftColor c =
     mempty
       { styleBorder =
           mempty
-            { borderStyleLeft = mempty {borderSideStyleColor = StyleValue c}
+            { borderStyleLeft = mempty {borderSideStyleColor = configValue c}
             }
       }
 
@@ -644,24 +581,18 @@ text :: TextStyle f -> Text -> Element e f i
 text = TextElement
 
 data TextStyleValues f = TextStyleValues
-  { textStyleTextColor :: StyleValue Color,
-    textStyleFont :: StyleValue f,
-    textStyleFontSize :: StyleValue Int
+  { textStyleTextColor :: ConfigValue Color,
+    textStyleFont :: ConfigValue f,
+    textStyleFontSize :: ConfigValue Int
   }
-  deriving (Eq, Show)
-
-instance Semigroup (TextStyleValues f) where
-  (TextStyleValues c1 f1 s1) <> (TextStyleValues c2 f2 s2) =
-    TextStyleValues (c1 <> c2) (f1 <> f2) (s1 <> s2)
-
-instance Monoid (TextStyleValues f) where
-  mempty = TextStyleValues mempty mempty mempty
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config (TextStyleValues f))
 
 font :: f -> TextStyle f
-font f = base $ mempty {textStyleFont = StyleValue f}
+font f = base $ mempty {textStyleFont = configValue f}
 
 textColor :: Color -> TextStyle f
-textColor c = base $ mempty {textStyleTextColor = StyleValue c}
+textColor c = base $ mempty {textStyleTextColor = configValue c}
 
 fontSize :: Int -> TextStyle f
-fontSize s = base $ mempty {textStyleFontSize = StyleValue s}
+fontSize s = base $ mempty {textStyleFontSize = configValue s}
