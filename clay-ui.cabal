@@ -20,12 +20,15 @@ library
     import:           warnings
     exposed-modules:  
         Clay,
+        Clay.Color,
+        Clay.Declaration,
+        Clay.Geometry,
         Clay.Layout,
         Clay.Layout.Config,
-        Clay.Render,
-        Clay.Render.Renderer,
         Clay.Raw,
-        Clay.Raw.Types 
+        Clay.Raw.Types,
+        Clay.Render,
+        Clay.Render.Renderer
     other-modules:
         Foreign.Extra
     build-depends:    

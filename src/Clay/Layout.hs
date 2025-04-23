@@ -1,98 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE StrictData #-}
 
-module Clay.Layout
-  ( Element (..),
-    element,
-    element_,
-    image,
-    image_,
-    Style (..),
-    Axis (..),
-    hovered,
-    Color (..),
-    ElementStyle,
-    ElementStyleValues (..),
-    TextStyle,
-    PaddingStyle (..),
-    SizingStyle (..),
-    Sizing (..),
-    SizingBounds (..),
-    LayoutSizeContextVar (..),
-    LayoutSizeValue (..),
-    add,
-    divide,
-    mult,
-    ChildStyle (..),
-    topToBottom,
-    leftToRight,
-    sub,
-    maxSize,
-    minSize,
-    bounds,
-    fitX,
-    fitX_,
-    fitY,
-    fitY_,
-    fit,
-    fit_,
-    growX,
-    growX_,
-    growY,
-    growY_,
-    grow,
-    grow_,
-    percentX,
-    percentY,
-    percentXY,
-    percent,
-    fixedX,
-    fixedY,
-    fixedXY,
-    fixed,
-    paddingTop,
-    paddingRight,
-    paddingBottom,
-    paddingLeft,
-    paddingY,
-    paddingX,
-    padding,
-    paddingAll,
-    XAlignment (..),
-    YAlignment (..),
-    childAlignX,
-    childAlignY,
-    childGap,
-    borderBottomWidth,
-    borderBottomColor,
-    borderBottom,
-    borderTopWidth,
-    borderTopColor,
-    borderTop,
-    borderYWidth,
-    borderYColor,
-    borderY,
-    borderRightWidth,
-    borderRightColor,
-    borderRight,
-    borderLeftWidth,
-    borderLeftColor,
-    borderLeft,
-    borderXWidth,
-    borderXColor,
-    borderX,
-    borderColor,
-    borderWidth,
-    border,
-    -- onHover,
-    text,
-    font,
-    textColor,
-    fontSize,
-  )
-where
+module Clay.Layout where
 
+import Clay.Color
 import Clay.Layout.Config
 import Data.Text
 import GHC.Generics (Generic)
@@ -100,42 +15,147 @@ import GHC.Generics (Generic)
 -- | e is the type of event the element can produce
 -- f is the font
 -- i is the image
-data Element e f i
-  = Element
-      { elementId :: Maybe Text,
-        elementStyle :: ElementStyle,
-        elementChildren :: [Element e f i]
-      }
-  | TextElement
-      { textElementStyle :: TextStyle f,
-        textElementText :: Text
-      }
-  | ImageElement
-      { imageElementId :: Maybe Text,
-        imageElementImage :: i,
-        imageElementStyle :: ElementStyle
-      }
+-- c is custom data
+data Clay e f i c = ClayElement (Element e f i c) | ClayText (TextConfig f)
 
-data Color = Color
-  { colorR :: Int,
-    colorG :: Int,
-    colorB :: Int,
-    colorA :: Int
+data Element e f i c
+  = Element (ElementConfig e f i c)
+  | ImageElement (ImageConfig i)
+  | CustomElement (CustomConfig c)
+
+data ElementConfig e f i c = ElementConfig
+  { elementConfigId :: Maybe Text,
+    elementConfigStyle :: ElementStyle,
+    elementConfigChildren :: [Clay e f i c]
   }
-  deriving (Eq, Show)
 
-element :: Text -> ElementStyle -> [Element e f i] -> Element e f i
-element eid = Element (Just eid)
+data ImageConfig i = ImageConfig
+  { imageConfigId :: Maybe Text,
+    imageConfigImage :: i,
+    imageConfigStyle :: ElementStyle
+  }
 
-element_ :: ElementStyle -> [Element e f i] -> Element e f i
-element_ = Element Nothing
+data CustomConfig c = CustomConfig
+  { customConfigId :: Maybe Text,
+    customConfigCustom :: c,
+    customConfigStyle :: ElementStyle
+  }
 
-image :: Text -> i -> ElementStyle -> Element e f i
-image eid = ImageElement (Just eid)
+data TextConfig f = TextConfig
+  { textConfigStyle :: TextStyle f,
+    textConfigText :: Text
+  }
 
-image_ :: i -> ElementStyle -> Element e f i
-image_ = ImageElement Nothing
+-- | * Constructors
+element :: Text -> ElementStyle -> [Clay e f i c] -> Clay e f i c
+element eid style children =
+  ClayElement $
+    Element $
+      ElementConfig (Just eid) style children
 
+element_ :: ElementStyle -> [Clay e f i c] -> Clay e f i c
+element_ style children =
+  ClayElement $
+    Element $
+      ElementConfig Nothing style children
+
+image :: Text -> i -> ElementStyle -> Clay e f i c
+image eid img style =
+  ClayElement $
+    ImageElement $
+      ImageConfig (Just eid) img style
+
+image_ :: i -> ElementStyle -> Clay e f i c
+image_ img style = ClayElement $ ImageElement $ ImageConfig Nothing img style
+
+custom :: Text -> c -> ElementStyle -> Clay e f i c
+custom eid ctm style =
+  ClayElement $
+    CustomElement $
+      CustomConfig (Just eid) ctm style
+
+custom_ :: c -> ElementStyle -> Clay e f i c
+custom_ ctm style =
+  ClayElement $
+    CustomElement $
+      CustomConfig Nothing ctm style
+
+text :: TextStyle f -> Text -> Clay e f i c
+text style txt = ClayText $ TextConfig style txt
+
+instance HasStyle (TextConfig f) (TextStyleValues f) where
+  getStyle (TextConfig {textConfigStyle}) = textConfigStyle
+
+getElementId :: Element e f i c -> Maybe Text
+getElementId (Element (ElementConfig {elementConfigId})) = elementConfigId
+getElementId (ImageElement (ImageConfig {imageConfigId})) = imageConfigId
+getElementId (CustomElement (CustomConfig {customConfigId})) = customConfigId
+
+instance HasStyle (Element e f i c) ElementStyleValues where
+  getStyle (Element (ElementConfig {elementConfigStyle})) = elementConfigStyle
+  getStyle (ImageElement (ImageConfig {imageConfigStyle})) = imageConfigStyle
+  getStyle (CustomElement (CustomConfig {customConfigStyle})) = customConfigStyle
+
+-- | * Layout
+
+-- | ** Style Types
+data Style a = Style
+  {styleHovered :: a, styleBase :: a}
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config (Style a))
+
+class HasStyle a s | a -> s where
+  getStyle :: a -> Style s
+
+base :: (Monoid a) => a -> Style a
+base = Style mempty
+
+hovered :: (Monoid a) => Style a -> Style a
+hovered (Style h b) = Style (h <> b) mempty
+
+type ElementStyle = Style ElementStyleValues
+
+data ElementStyleValues = ElementStyleValues
+  { styleDirection :: DirectionStyle,
+    styleSizing :: SizingStyle,
+    stylePadding :: PaddingStyle,
+    styleChild :: ChildStyle,
+    styleBorder :: BorderStyle,
+    styleBackgroundColor :: ConfigValue Color,
+    styleCornerRadius :: CornerRadiusStyle
+  }
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config ElementStyleValues)
+
+directionStyle :: DirectionStyle -> ElementStyle
+directionStyle d = base $ mempty {styleDirection = d}
+
+sizingStyle :: SizingStyle -> ElementStyle
+sizingStyle s = base $ mempty {styleSizing = s}
+
+paddingStyle :: PaddingStyle -> ElementStyle
+paddingStyle p = base $ mempty {stylePadding = p}
+
+childStyle :: ChildStyle -> ElementStyle
+childStyle c = base $ mempty {styleChild = c}
+
+borderStyle :: BorderStyle -> ElementStyle
+borderStyle b = base $ mempty {styleBorder = b}
+
+cornerRadiusStyle :: CornerRadiusStyle -> ElementStyle
+cornerRadiusStyle c = base $ mempty {styleCornerRadius = c}
+
+type TextStyle f = Style (TextStyleValues f)
+
+data TextStyleValues f = TextStyleValues
+  { textStyleTextColor :: ConfigValue Color,
+    textStyleFont :: ConfigValue f,
+    textStyleFontSize :: ConfigValue Int
+  }
+  deriving (Eq, Show, Generic)
+  deriving (Semigroup, Monoid) via (Config (TextStyleValues f))
+
+-- | ** Calculated Layout Values
 data LayoutSizeContextVar = ViewHeight | ViewWidth deriving (Eq, Show)
 
 data LayoutSizeValue
@@ -159,36 +179,43 @@ mult = MultiplyVar
 divide :: LayoutSizeContextVar -> Int -> LayoutSizeValue
 divide = DivideVar
 
-data Style a = Style
-  {styleHovered :: a, styleBase :: a}
-  deriving (Eq, Show, Generic)
-  deriving (Semigroup, Monoid) via (Config (Style a))
+-- ** Corner Radius
 
-base :: (Monoid a) => a -> Style a
-base = Style mempty
-
-hovered :: (Monoid a) => Style a -> Style a
-hovered (Style h b) = Style (h <> b) mempty
-
-type ElementStyle = Style ElementStyleValues
-
-type TextStyle f = Style (TextStyleValues f)
-
-data ElementStyleValues = ElementStyleValues
-  { styleDirection :: DirectionStyle,
-    styleSizing :: SizingStyle,
-    stylePadding :: PaddingStyle,
-    styleChild :: ChildStyle,
-    styleBorder :: BorderStyle,
-    styleBackgroundColor :: ConfigValue Color,
-    styleCornerRadius :: ConfigValue Int
+data CornerRadiusStyle = CornerRadiusStyle
+  { cornerRadiusStyleTopLeft :: ConfigValue Int,
+    cornerRadiusStyleTopRight :: ConfigValue Int,
+    cornerRadiusStyleBottomLeft :: ConfigValue Int,
+    cornerRadiusStyleBottomRight :: ConfigValue Int
   }
   deriving (Eq, Show, Generic)
-  deriving (Semigroup, Monoid) via (Config ElementStyleValues)
+  deriving (Semigroup, Monoid) via (Config CornerRadiusStyle)
 
-data Axis = XAxis | YAxis deriving (Eq, Show)
+cornerRadiusTopLeft :: Int -> ElementStyle
+cornerRadiusTopLeft i = cornerRadiusStyle $ mempty {cornerRadiusStyleTopLeft = configValue i}
 
--- * Layout
+cornerRadiusTopRight :: Int -> ElementStyle
+cornerRadiusTopRight i = cornerRadiusStyle $ mempty {cornerRadiusStyleTopRight = configValue i}
+
+cornerRadiusBottomLeft :: Int -> ElementStyle
+cornerRadiusBottomLeft i = cornerRadiusStyle $ mempty {cornerRadiusStyleBottomLeft = configValue i}
+
+cornerRadiusBottomRight :: Int -> ElementStyle
+cornerRadiusBottomRight i = cornerRadiusStyle $ mempty {cornerRadiusStyleBottomRight = configValue i}
+
+cornerRadiusTop :: Int -> ElementStyle
+cornerRadiusTop i = cornerRadiusTopLeft i <> cornerRadiusTopRight i
+
+cornerRadiusBottom :: Int -> ElementStyle
+cornerRadiusBottom i = cornerRadiusBottomLeft i <> cornerRadiusBottomRight i
+
+cornerRadiusLeft :: Int -> ElementStyle
+cornerRadiusLeft i = cornerRadiusTopLeft i <> cornerRadiusBottomLeft i
+
+cornerRadiusRight :: Int -> ElementStyle
+cornerRadiusRight i = cornerRadiusBottomRight i <> cornerRadiusTopRight i
+
+cornerRadius :: Int -> ElementStyle
+cornerRadius i = cornerRadiusTop i <> cornerRadiusBottom i
 
 -- ** Direction
 
@@ -201,10 +228,10 @@ newtype DirectionStyle = DirectionStyle
 data LayoutDirection = LeftToRight | TopToBottom deriving (Eq, Show)
 
 topToBottom :: ElementStyle
-topToBottom = base $ mempty {styleDirection = mempty {directionStyleDirection = configValue TopToBottom}}
+topToBottom = directionStyle $ mempty {directionStyleDirection = configValue TopToBottom}
 
 leftToRight :: ElementStyle
-leftToRight = base $ mempty {styleDirection = mempty {directionStyleDirection = configValue LeftToRight}}
+leftToRight = directionStyle $ mempty {directionStyleDirection = configValue LeftToRight}
 
 -- ** Sizing
 
@@ -236,43 +263,31 @@ data Sizing = Fit SizingBounds | Grow SizingBounds | Percent Float | Fixed Int d
 
 fitX :: SizingBounds -> ElementStyle
 fitX b =
-  base $
+  sizingStyle $
     mempty
-      { styleSizing =
-          mempty
-            { sizingStyleXAxis = configValue $ Fit b
-            }
+      { sizingStyleXAxis = configValue $ Fit b
       }
 
 fitX_ :: ElementStyle
 fitX_ =
-  base $
+  sizingStyle $
     mempty
-      { styleSizing =
-          mempty
-            { sizingStyleXAxis = configValue $ Fit mempty
-            }
+      { sizingStyleXAxis = configValue $ Fit mempty
       }
 
 fitY :: SizingBounds -> ElementStyle
 fitY b =
-  base $
+  sizingStyle $
     mempty
-      { styleSizing =
-          mempty
-            { sizingStyleYAxis = configValue $ Fit b
-            }
+      { sizingStyleYAxis = configValue $ Fit b
       }
 
 -- Unbounded fitY
 fitY_ :: ElementStyle
 fitY_ =
-  base $
+  sizingStyle $
     mempty
-      { styleSizing =
-          mempty
-            { sizingStyleYAxis = configValue $ Fit mempty
-            }
+      { sizingStyleYAxis = configValue $ Fit mempty
       }
 
 -- | Fit on both axes
@@ -285,12 +300,9 @@ fit_ = fit mempty
 
 growX :: SizingBounds -> ElementStyle
 growX b =
-  base $
+  sizingStyle $
     mempty
-      { styleSizing =
-          mempty
-            { sizingStyleXAxis = configValue $ Grow b
-            }
+      { sizingStyleXAxis = configValue $ Grow b
       }
 
 growX_ :: ElementStyle
@@ -298,12 +310,9 @@ growX_ = growX mempty
 
 growY :: SizingBounds -> ElementStyle
 growY b =
-  base $
+  sizingStyle $
     mempty
-      { styleSizing =
-          mempty
-            { sizingStyleYAxis = configValue $ Grow b
-            }
+      { sizingStyleYAxis = configValue $ Grow b
       }
 
 growY_ :: ElementStyle
@@ -378,9 +387,6 @@ data PaddingStyle = PaddingStyle
   deriving (Eq, Show, Generic)
   deriving (Semigroup, Monoid) via (Config PaddingStyle)
 
-paddingStyle :: PaddingStyle -> ElementStyle
-paddingStyle ps = base $ mempty {stylePadding = ps}
-
 paddingTop :: Int -> ElementStyle
 paddingTop value = paddingStyle $ mempty {paddingStyleTop = configValue value}
 
@@ -414,9 +420,9 @@ paddingAll p =
     <> paddingBottom p
     <> paddingLeft p
 
-data XAlignment = AlignCenter | AlignLeft | AlignRight deriving (Eq, Show)
+data XAlignment = AlignXCenter | AlignXLeft | AlignXRight deriving (Eq, Show)
 
-data YAlignment = AlignMiddle | AlignTop | AlignBottom deriving (Eq, Show)
+data YAlignment = AlignYCenter | AlignYTop | AlignYBottom deriving (Eq, Show)
 
 data ChildStyle = ChildStyle
   { childStyleChildAlignX :: ConfigValue XAlignment,
@@ -577,17 +583,6 @@ border i c = borderWidth i <> borderColor c
 -- onHover e = mempty {styleOnHover = pure e}
 
 -- | * Text
-text :: TextStyle f -> Text -> Element e f i
-text = TextElement
-
-data TextStyleValues f = TextStyleValues
-  { textStyleTextColor :: ConfigValue Color,
-    textStyleFont :: ConfigValue f,
-    textStyleFontSize :: ConfigValue Int
-  }
-  deriving (Eq, Show, Generic)
-  deriving (Semigroup, Monoid) via (Config (TextStyleValues f))
-
 font :: f -> TextStyle f
 font f = base $ mempty {textStyleFont = configValue f}
 

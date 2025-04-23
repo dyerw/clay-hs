@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE StrictData #-}
 
 module Clay.Render
@@ -12,49 +13,43 @@ module Clay.Render
   )
 where
 
+import Clay.Color
+import Clay.Declaration
 import Clay.Layout
+import Clay.Layout.Config (ConfigValue (..))
 import Clay.Raw
 import Clay.Raw.Types
 import Control.Monad.IO.Class
-import Control.Monad.RWS.Strict (MonadReader (ask), RWST (runRWST), asks)
+import Data.Maybe (fromMaybe)
 import Data.Text
+import Foreign (Word16)
 import Foreign.C.Types
 import Foreign.Ptr (Ptr)
 
-newtype Declaration e f i a = Declaration
-  { unDeclaration ::
-      RWST
-        (DeclarationContext e f i)
-        [e]
-        ()
-        IO
-        a
-  }
-  deriving
-    ( Functor,
-      Applicative,
-      Monad,
-      MonadIO,
-      MonadReader (DeclarationContext e f i)
-    )
+calculateLayout :: Element e f i c -> InputState -> IO ([RenderCommand f], [e])
+calculateLayout root input = do
+  updateInput input
 
-declareLayout :: Element e f i -> InputState -> IO [e]
-declareLayout root input = do
+  clayBeginLayout
+  events <- declareRoot root input
+
+  clayCommands <- clayEndLayout >>= arrayToList
+
+  let commands = clayRenderCommandToRenderCommand <$> clayCommands
+  pure (commands, events)
+
+declareRoot :: Element e f i c -> InputState -> IO [e]
+declareRoot root input = do
   ctx <- rootContext root
-  (_, _, events) <-
-    runRWST
-      (unDeclaration elementDeclaration)
-      ctx
-      ()
-  pure events
+  runDeclaration elementDeclaration ctx
   where
-    rootContext :: Element e f i -> IO (DeclarationContext e f i)
+    rootContext :: Element e f i c -> IO (ElementDeclarationContext e f i c)
     rootContext root' = do
       eid <- calculateClayElementId Nothing root'
       isHovered <- clayHovered
-      pure $ DeclarationContext input root' isHovered Nothing eid
+      pure $ ElementDeclarationContext root' (CommonDeclarationContextFields input isHovered Nothing eid)
 
-elementDeclaration :: Declaration e f i ()
+elementDeclaration :: ElementDeclaration e f i c ()
 elementDeclaration = do
   liftIO clayOpenElement
   configureElement
@@ -69,18 +64,6 @@ updateInput (InputState (pointerX, pointerY) pointerDown (layoutWidth, layoutHei
   claySetLayoutDimensions
     (ClayDimensions (CFloat $ fromIntegral layoutWidth) (CFloat $ fromIntegral layoutHeight))
 
-calculateLayout :: Element e f i -> InputState -> IO ([RenderCommand f], [e])
-calculateLayout root input = do
-  updateInput input
-
-  clayBeginLayout
-  events <- declareLayout root input
-
-  clayCommands <- clayEndLayout >>= arrayToList
-
-  let commands = clayRenderCommandToRenderCommand <$> clayCommands
-  pure (commands, events)
-
 data RenderCommand font = RenderCommand
   { renderCommandBoundingBox :: Rect Float,
     renderCommandZIndex :: Int,
@@ -90,63 +73,15 @@ data RenderCommand font = RenderCommand
 newtype RenderData font
   = TextData (TextRenderData font)
 
-data InputState = InputState
-  { inputStatePointerLocation :: (Int, Int),
-    inputStatePointerDown :: Bool,
-    inputStateLayoutDimensions :: (Int, Int)
-  }
-
-data DeclarationContext e f i = DeclarationContext
-  { declarationContextInput :: InputState,
-    declarationContextElement :: Element e f i,
-    declarationContextIsHovered :: Bool,
-    declarationContextParentId :: Maybe ClayElementId,
-    declarationContextElementId :: Maybe ClayElementId
-  }
-
-calculateClayElementId :: Maybe ClayElementId -> Element e f i -> IO (Maybe ClayElementId)
-calculateClayElementId parentId ele = do
-  clayStringId <- traverse toClayString (elementId ele)
-  let parentIdHash = maybe 0 clayElementIdId parentId
-  traverse (\csi -> clayHashString csi 0 parentIdHash) clayStringId
-
-getStyleValue :: (ElementStyleValues -> StyleValue b) -> Declaration e f i (Maybe b)
-getStyleValue f = do
-  style <- asks $ elementStyle . declarationContextElement
-  isHovered <- asks declarationContextIsHovered
-  let baseValue = (f . styleBase) style
-  let hoveredValue = (f . styleHovered) style
-  pure $
-    toMaybe $
-      if isHovered
-        then baseValue <> hoveredValue
-        else baseValue
-
-resolveLayoutSizeValue :: LayoutSizeValue -> Declaration e f i Float
-resolveLayoutSizeValue v = do
-  (viewWidth, viewHeight) <- asks (inputStateLayoutDimensions . declarationContextInput)
-  pure $ case v of
-    Pixels i -> fromIntegral i
-    Var ViewHeight -> fromIntegral viewHeight
-    AddVar ViewHeight i -> fromIntegral $ viewWidth + i
-    SubtractVar ViewHeight i -> fromIntegral $ viewHeight - i
-    MultiplyVar ViewHeight i -> fromIntegral $ viewHeight * i
-    DivideVar ViewHeight i -> fromIntegral viewHeight / fromIntegral i
-    Var ViewWidth -> fromIntegral viewWidth
-    AddVar ViewWidth i -> fromIntegral $ viewWidth + i
-    SubtractVar ViewWidth i -> fromIntegral $ viewWidth - i
-    MultiplyVar ViewWidth i -> fromIntegral $ viewWidth * i
-    DivideVar ViewWidth i -> fromIntegral viewWidth / fromIntegral i
-
-configureElement :: Declaration e f i ()
+configureElement :: ElementDeclaration e f i c ()
 configureElement = do
   clayDecl <- getClayElementDeclaration
   liftIO $ clayConfigureOpenElement clayDecl
 
-getClayElementDeclaration :: Declaration e f i ClayElementDeclaration
+getClayElementDeclaration :: ElementDeclaration e f i c ClayElementDeclaration
 getClayElementDeclaration =
   ClayElementDeclaration
-    <$> getClayElementId
+    <$> getContextElementId
     <*> getClayLayoutConfig
     <*> getClayBackgroundColor
     <*> getClayCornerRadius
@@ -157,83 +92,147 @@ getClayElementDeclaration =
     <*> getClayBorderElementConfig
     <*> getClayUserData
 
-getClayElementId :: Declaration e f i (Maybe ClayElementId)
-getClayElementId = asks declarationContextElementId
-
-getClayLayoutConfig :: Declaration e f i (Maybe ClayLayoutConfig)
+getClayLayoutConfig :: ElementDeclaration e f i c (Maybe ClayLayoutConfig)
 getClayLayoutConfig =
-  ClayLayoutConfig
-    <$> getClayLayoutConfigSizing
-    <*> getClayLayoutConfigPadding
-    <*> getClayLayoutConfigChildGap
-    <*> getClayLayoutConfigChildAlignment
-    <*> getClayLayoutCOnfigLayoutDirection
+  Just
+    <$> ( ClayLayoutConfig
+            <$> getClayLayoutConfigSizing
+            <*> getClayLayoutConfigPadding
+            <*> getClayLayoutConfigChildGap
+            <*> getClayLayoutConfigChildAlignment
+            <*> getClayLayoutConfigLayoutDirection
+        )
 
-getClayBackgroundColor :: Declaration e f i (Maybe ClayColor)
-getClayBackgroundColor = getStyleValue styleBackgroundColor
+getClayLayoutConfigSizing :: ElementDeclaration e f i c ClaySizing
+getClayLayoutConfigSizing = ClaySizing <$> getClaySizingWidth <*> getClaySizingHeight
 
-getClayCornerRadius :: Declaration e f i (Maybe ClayCornerRadius)
-getClayCornerRadius = undefined
+getClaySizingHeight :: ElementDeclaration e f i c (Maybe ClaySizingAxis)
+getClaySizingHeight = getClaySizingAxis (sizingStyleYAxis . styleSizing)
 
-getClayImageElementConfig :: Declaration e f i (Maybe ClayImageElementConfig)
-getClayImageElementConfig = undefined
+getClaySizingWidth :: ElementDeclaration e f i c (Maybe ClaySizingAxis)
+getClaySizingWidth = getClaySizingAxis (sizingStyleXAxis . styleSizing)
 
-getClayFloatingElementConfig :: Declaration e f i (Maybe ClayFloatingElementConfig)
+getClaySizingAxis :: (ElementStyleValues -> ConfigValue Sizing) -> ElementDeclaration e f i c (Maybe ClaySizingAxis)
+getClaySizingAxis getSizing = do
+  sizing <- getConfigValue getSizing
+  axisSize <- traverse getClaySizingAxisSize sizing
+  let axisType = toClaySizingAxisType <$> sizing
+  pure $
+    ClaySizingAxis
+      <$> axisSize
+      <*> axisType
+
+getClaySizingAxisSize :: Sizing -> ElementDeclaration e f i c (Either ClaySizingMinMax CFloat)
+getClaySizingAxisSize (Fit b) = Left <$> getClaySizingMinMax b
+getClaySizingAxisSize (Grow b) = Left <$> getClaySizingMinMax b
+getClaySizingAxisSize (Percent f) = pure $ Right $ CFloat f
+getClaySizingAxisSize (Fixed i) = pure $ Right $ CFloat (fromIntegral i)
+
+getClaySizingMinMax :: SizingBounds -> ElementDeclaration e f i c ClaySizingMinMax
+getClaySizingMinMax (SizingBounds min' max') = do
+  resolvedMin <- traverse resolveLayoutSizeValue (toMaybe min')
+  resolvedMax <- traverse resolveLayoutSizeValue (toMaybe max')
+  pure $
+    ClaySizingMinMax
+      (CFloat <$> resolvedMin)
+      (CFloat <$> resolvedMax)
+
+toClaySizingAxisType :: Sizing -> ClaySizingType
+toClaySizingAxisType (Fit _) = claySizingTypeFit
+toClaySizingAxisType (Grow _) = claySizingTypeGrow
+toClaySizingAxisType (Percent _) = claySizingTypePercent
+toClaySizingAxisType (Fixed _) = claySizingTypeFixed
+
+getClayLayoutConfigPadding :: ElementDeclaration e f i c ClayPadding
+getClayLayoutConfigPadding =
+  ClayPadding
+    <$> getWord16ValueZero (paddingStyleLeft . stylePadding)
+    <*> getWord16ValueZero (paddingStyleRight . stylePadding)
+    <*> getWord16ValueZero (paddingStyleTop . stylePadding)
+    <*> getWord16ValueZero (paddingStyleBottom . stylePadding)
+
+getClayLayoutConfigChildGap :: ElementDeclaration e f i c Word16
+getClayLayoutConfigChildGap = getWord16ValueZero (childStyleChildGap . styleChild)
+
+getClayLayoutConfigChildAlignment :: ElementDeclaration e f i c ClayChildAlignment
+getClayLayoutConfigChildAlignment =
+  ClayChildAlignment
+    <$> getClayChildLayoutAlignmentX
+    <*> getClayChildLayoutAlignmentY
+
+getClayChildLayoutAlignmentX :: ElementDeclaration e f i c ClayLayoutAlignmentX
+getClayChildLayoutAlignmentX =
+  maybe
+    clayAlignXLeft
+    toClayLayoutAlignmentX
+    <$> getConfigValue (childStyleChildAlignX . styleChild)
+
+getClayChildLayoutAlignmentY :: ElementDeclaration e f i c ClayLayoutAlignmentY
+getClayChildLayoutAlignmentY =
+  maybe
+    clayAlignYTop
+    toClayLayoutAlignmentY
+    <$> getConfigValue (childStyleChildAlignY . styleChild)
+
+toClayLayoutAlignmentX :: XAlignment -> ClayLayoutAlignmentX
+toClayLayoutAlignmentX AlignXCenter = clayAlignXCenter
+toClayLayoutAlignmentX AlignXLeft = clayAlignXLeft
+toClayLayoutAlignmentX AlignXRight = clayAlignXRight
+
+toClayLayoutAlignmentY :: YAlignment -> ClayLayoutAlignmentY
+toClayLayoutAlignmentY AlignYCenter = clayAlignYCenter
+toClayLayoutAlignmentY AlignYTop = clayAlignYTop
+toClayLayoutAlignmentY AlignYBottom = clayAlignYBottom
+
+getClayLayoutConfigLayoutDirection :: ElementDeclaration e f i c ClayLayoutDirection
+getClayLayoutConfigLayoutDirection = do
+  direction <- getConfigValue (directionStyleDirection . styleDirection)
+  pure $ case direction of
+    Just TopToBottom -> clayTopToBottom
+    _ -> clayLeftToRight
+
+getClayBackgroundColor :: ElementDeclaration e f i c (Maybe ClayColor)
+getClayBackgroundColor = fmap toClayColor <$> getConfigValue styleBackgroundColor
+  where
+    toClayColor (Color r g b a) =
+      ClayColor
+        (CFloat $ fromIntegral r)
+        (CFloat $ fromIntegral g)
+        (CFloat $ fromIntegral b)
+        (CFloat $ fromIntegral a)
+
+getClayCornerRadius :: ElementDeclaration e f i c (Maybe ClayCornerRadius)
+getClayCornerRadius =
+  Just
+    <$> ( ClayCornerRadius
+            <$> (fromMaybe 0 <$> getCFloatValue (cornerRadiusStyleTopLeft . styleCornerRadius))
+            <*> (fromMaybe 0 <$> getCFloatValue (cornerRadiusStyleTopRight . styleCornerRadius))
+            <*> (fromMaybe 0 <$> getCFloatValue (cornerRadiusStyleBottomLeft . styleCornerRadius))
+            <*> (fromMaybe 0 <$> getCFloatValue (cornerRadiusStyleBottomRight . styleCornerRadius))
+        )
+
+getClayImageElementConfig :: ElementDeclaration e f i c (Maybe ClayImageElementConfig)
+getClayImageElementConfig = do
+  ele <- getDeclarationElement
+  case ele of
+    ImageElement (ImageConfig {imageConfigImage}) -> do
+      pure undefined
+    _ -> pure Nothing
+
+getClayFloatingElementConfig :: ElementDeclaration e f i c (Maybe ClayFloatingElementConfig)
 getClayFloatingElementConfig = undefined
 
-getClayCustomElementConfig :: Declaration e f i (Maybe ClayCustomElementConfig)
+getClayCustomElementConfig :: ElementDeclaration e f i c (Maybe ClayCustomElementConfig)
 getClayCustomElementConfig = undefined
 
-getClayScrollElementConfig :: Declaration e f i (Maybe ClayScrollElementConfig)
+getClayScrollElementConfig :: ElementDeclaration e f i c (Maybe ClayScrollElementConfig)
 getClayScrollElementConfig = undefined
 
-getClayBorderElementConfig :: Declaration e f i (Maybe ClayBorderElementConfig)
+getClayBorderElementConfig :: ElementDeclaration e f i c (Maybe ClayBorderElementConfig)
 getClayBorderElementConfig = undefined
 
-getClayUserData :: Declaration e f i (Ptr ())
+getClayUserData :: ElementDeclaration e f i c (Ptr ())
 getClayUserData = undefined
-
--- getClayChildGap :: Declaration e f i (Maybe Word16)
--- getClayChildGap = do
---   pure undefined
-
--- getClayChildAlignment :: Declaration e f i ClayChildAlignment
--- getClayChildAlignment = ClayChildAlignment <$> getClayChildAlignmentX <*> getClayChildAlignmentY
--- getClayChildAlignmentX = do
---   childStyleAlignX <- getStyleValue (childStyleChildAlignX . styleChild)
---     StyleValue AlignLeft -> Just clayAlignXLeft
---     StyleValue AlignCenter -> Just clayAlignXCenter
-
--- getClayChildAlignmentY :: Declaration e f i ClayLayoutAlignmentY
--- getClayChildAlignmentY = do
---   childStyleAlignY <- getStyleValue (childStyleChildAlignY . styleChild)
---   pure $ case childStyleAlignY of
---     Default -> Nothing
---     StyleValue AlignTop -> Just clayAlignYTop
---     StyleValue AlignMiddle -> Just clayAlignYCenter
-
--- getClaySizing :: Declaration e f i ClaySizing
--- getClaySizing = do
---   let xSizing = toMaybe $ getSizing style ctx XAxis
---       ySizing = toMaybe $ getSizing style ctx YAxis
---       toClayAxis a = case a of
---         Fit b -> ClaySizingAxis (Left $ toClayMinMax ctx b) claySizingTypeFit
---         Percent f -> ClaySizingAxis (Right (CFloat f)) claySizingTypePercent
---         Fixed i ->
---           ClaySizingAxis
---             (Left $ ClaySizingMinMax (Just $ fromIntegral i) (Just $ fromIntegral i))
---             claySizingTypeFixed
---    in ClaySizing
---         { claySizingWidth = toClayAxis <$> xSizing,
---           claySizingHeight = toClayAxis <$> ySizing
---         }
-
--- toClayMinMax :: SizingBounds -> Declaration e f i ClaySizingMinMax
--- toClayMinMax ctx (SizingBounds bMin bMax) =
---   ClaySizingMinMax
---     { claySizingMinMaxMin = toMinMaxCFloat bMin,
---       claySizingMinMaxMax = toMinMaxCFloat bMax
---     }
 
 clayRenderCommandToRenderCommand :: ClayRenderCommand -> RenderCommand font
 clayRenderCommandToRenderCommand = undefined
