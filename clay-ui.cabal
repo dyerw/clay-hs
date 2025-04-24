@@ -62,5 +62,5 @@ test-suite clay-ui-test
     other-modules:
         RawSpec,
         Raw.TypesSpec,
-        Clay.LayoutSpec,
+        Clay.RenderSpec,
         Equivalence.ClayWebsite

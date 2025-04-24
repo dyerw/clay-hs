@@ -1,6 +1,6 @@
 module Clay.Render.Renderer where
 
-import Clay.Layout (Color)
+import Clay.Color
 import Control.Monad.IO.Class (MonadIO)
 
 -- class (MonadIO m) => Renderer r m f i where

@@ -33,14 +33,14 @@ newtype Declaration ctx e f i c a = Declaration
       MonadReader ctx
     )
 
-runDeclaration :: Declaration ctx e f i c a -> ctx -> IO [e]
+runDeclaration :: Declaration ctx e f i c a -> ctx -> IO (a, [e])
 runDeclaration d ctx = do
-  (_, _, events) <-
+  (a, _, events) <-
     runRWST
       (unDeclaration d)
       ctx
       ()
-  pure events
+  pure (a, events)
 
 type ElementDeclaration e f i c a = Declaration (ElementDeclarationContext e f i c) e f i c a
 
@@ -64,9 +64,9 @@ instance HasStyle (ElementDeclarationContext e f i c) ElementStyleValues where
   getStyle (ElementDeclarationContext ele _) = getStyle ele
 
 data InputState = InputState
-  { inputStatePointerLocation :: (Int, Int),
+  { inputStatePointerLocation :: (Integer, Integer),
     inputStatePointerDown :: Bool,
-    inputStateLayoutDimensions :: (Int, Int)
+    inputStateLayoutDimensions :: (Integer, Integer)
   }
 
 data CommonDeclarationContextFields = CommonDeclarationContextFields
@@ -124,19 +124,8 @@ getWord16Value = fmap (fmap fromIntegral) . getConfigValue
 getWord16ValueZero :: (Integral a, HasStyle ctx s, IsContextDeclaration ctx) => (s -> ConfigValue a) -> Declaration ctx e f i c Word16
 getWord16ValueZero = fmap (fromMaybe 0) . getWord16Value
 
-resolveLayoutSizeValue :: (IsContextDeclaration ctx) => LayoutSizeValue -> Declaration ctx e f i c Float
-resolveLayoutSizeValue v = do
+resolveLayoutCalculation :: (IsContextDeclaration ctx) => LayoutCalculation -> Declaration ctx e f i c Float
+resolveLayoutCalculation calculation = do
   input <- getContextInput
-  let (viewWidth, viewHeight) = inputStateLayoutDimensions input
-  pure $ case v of
-    Pixels i -> fromIntegral i
-    Var ViewHeight -> fromIntegral viewHeight
-    AddVar ViewHeight i -> fromIntegral $ viewWidth + i
-    SubtractVar ViewHeight i -> fromIntegral $ viewHeight - i
-    MultiplyVar ViewHeight i -> fromIntegral $ viewHeight * i
-    DivideVar ViewHeight i -> fromIntegral viewHeight / fromIntegral i
-    Var ViewWidth -> fromIntegral viewWidth
-    AddVar ViewWidth i -> fromIntegral $ viewWidth + i
-    SubtractVar ViewWidth i -> fromIntegral $ viewWidth - i
-    MultiplyVar ViewWidth i -> fromIntegral $ viewWidth * i
-    DivideVar ViewWidth i -> fromIntegral viewWidth / fromIntegral i
+  let (w, h) = inputStateLayoutDimensions input
+  pure $ fromIntegral $ calculate w h calculation

@@ -2,35 +2,34 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-{- |
-Module      : Clay.Raw
-Description : Direct bindings to Clay functions
-License     : MIT
-Maintainer  : liamd94@gmail.com
-
-Direct ports of all functions in @clay.h@. Where the original function
-took or received structs by value it is instead bound to a helper function
-that passes the struct by pointer. Functions peeking those values into managed
-memory are exposed so calling code doesn't have to fuss with pointers.
--}
-module Clay.Raw (
-  clayMinMemorySize,
-  clayCreateArenaWithCapacityAndMemory,
-  clayInitialize,
-  claySetPointerState,
-  claySetLayoutDimensions,
-  clayGetCurrentContext,
-  clayBeginLayout,
-  clayEndLayout,
-  clayOpenElement,
-  clayConfigureOpenElement,
-  clayCloseElement,
-  clayHashString,
-  clayHovered,
-  toClayString,
-  fromClayString,
-  arrayToList,
-)
+-- |
+-- Module      : Clay.Raw
+-- Description : Direct bindings to Clay functions
+-- License     : MIT
+-- Maintainer  : liamd94@gmail.com
+--
+-- Direct ports of all functions in @clay.h@. Where the original function
+-- took or received structs by value it is instead bound to a helper function
+-- that passes the struct by pointer. Functions peeking those values into managed
+-- memory are exposed so calling code doesn't have to fuss with pointers.
+module Clay.Raw
+  ( clayMinMemorySize,
+    clayCreateArenaWithCapacityAndMemory,
+    clayInitialize,
+    claySetPointerState,
+    claySetLayoutDimensions,
+    clayGetCurrentContext,
+    clayBeginLayout,
+    clayEndLayout,
+    clayOpenElement,
+    clayConfigureOpenElement,
+    clayCloseElement,
+    clayHashString,
+    clayHovered,
+    toClayString,
+    fromClayString,
+    arrayToList,
+  )
 where
 
 import Clay.Raw.Types

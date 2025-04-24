@@ -1243,7 +1243,7 @@ data ClayElementDeclaration = ClayElementDeclaration {
 -- so we need special handling for our peek/poke
 instance Storable ClayElementDeclaration where
   sizeOf _ = (#size Clay_ElementDeclaration)
-  alignment _ = (#size Clay_ElementDeclaration)
+  alignment _ = (#alignment Clay_ElementDeclaration)
   peek ptr = do
     -- Read Maybe fields using peekMaybe
     let idPtr = ptr `plusPtr` (#offset Clay_ElementDeclaration, id)

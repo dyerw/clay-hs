@@ -62,7 +62,7 @@ spec = do
               { clayLayoutConfigSizing = sizing,
                 clayLayoutConfigPadding = ClayPadding 0 0 0 0,
                 clayLayoutConfigChildGap = 0,
-                clayLayoutConfigChildAlignment = ClayChildAlignment (Just clayAlignXCenter) (Just clayAlignYCenter),
+                clayLayoutConfigChildAlignment = ClayChildAlignment clayAlignXCenter clayAlignYCenter,
                 clayLayoutConfigLayoutDirection = clayLeftToRight
               }
 
@@ -72,7 +72,7 @@ spec = do
       let elementDeclaration =
             ClayElementDeclaration
               { clayElementDeclarationId = Just elementId,
-                clayElementDeclarationLayout = layoutConfig,
+                clayElementDeclarationLayout = Just layoutConfig,
                 clayElementDeclarationBackgroundColor = Just $ ClayColor 0 0 255 255,
                 clayElementDeclarationCornerRadius = Just $ ClayCornerRadius 10 10 10 10,
                 clayElementDeclarationImage = Nothing,

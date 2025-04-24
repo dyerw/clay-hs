@@ -2,6 +2,7 @@
 -- to ensure they create the same render commands
 module Equivalence.ClayWebsite where
 
+import Clay.Color
 import Clay.Layout
 import Data.Text
 import Test.Hspec
@@ -17,7 +18,9 @@ type ImageUrl = Text
 
 data Events = RendererButtonClicked
 
-type WebsiteElement = Element Events Fonts ImageUrl
+type Custom = ()
+
+type WebsiteElement = Clay Events Fonts ImageUrl Custom
 
 headerText :: Text -> WebsiteElement
 headerText =
@@ -32,18 +35,15 @@ landingPageBlob fs color img t =
   element
     "HeroBlob"
     ( paddingAll 16
-        <> grow (maxSize (Pixels 480))
+        <> grow (maxSize 480)
         <> childGap 16
-        <> childAlignY AlignMiddle
+        <> childAlignY AlignYCenter
         <> border 2 color
         -- <> cornerRadius 10
     )
     [ image "CheckImage" img (fixed 32),
       text (textColor color <> fontSize fs) t
     ]
-
-red :: Color
-red = Color 255 0 0 255
 
 orange :: Color
 orange = Color 230 100 0 255
@@ -63,14 +63,14 @@ colorBlobBorder4 = Color 230 100 0 255
 colorBlobBorder5 :: Color
 colorBlobBorder5 = Color 230 100 0 255
 
-landingPageDesktop :: Element Events Fonts ImageUrl
+landingPageDesktop :: WebsiteElement
 landingPageDesktop =
   element
     "LandingPage1Desktop"
-    (growX_ <> fitY (maxSize $ sub ViewHeight 70) <> fitX_ <> childAlignY AlignMiddle <> paddingAll 50)
+    (growX_ <> fitY (maxSize $ viewHeight - 70) <> fitX_ <> childAlignY AlignYCenter <> paddingAll 50)
     [ element
         "LandingPage1"
-        (grow_ <> childAlignY AlignMiddle <> childGap 32 <> paddingAll 32 <> borderX 2 red)
+        (grow_ <> childAlignY AlignYCenter <> childGap 32 <> paddingAll 32 <> borderX 2 red)
         [ element
             "LeftText"
             (percentX 0.55 <> topToBottom <> childGap 8)
@@ -80,7 +80,7 @@ landingPageDesktop =
             ],
           element
             "HeroImageOuter"
-            (topToBottom <> percentX 0.45 <> childAlignX AlignCenter <> childGap 16)
+            (topToBottom <> percentX 0.45 <> childAlignX AlignXCenter <> childGap 16)
             [ landingPageBlob 32 colorBlobBorder5 "High performance" "/clay/images/check_5.png",
               landingPageBlob 32 colorBlobBorder4 "Flexbox-style responsive layout" "check_6.png",
               landingPageBlob 32 colorBlobBorder3 "Flexbox-style responsive layout" "check_6.png",

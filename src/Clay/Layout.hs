@@ -9,6 +9,7 @@ module Clay.Layout where
 
 import Clay.Color
 import Clay.Layout.Config
+import Control.Monad.Reader (Reader, asks, runReader)
 import Data.Text
 import GHC.Generics (Generic)
 
@@ -124,7 +125,7 @@ data ElementStyleValues = ElementStyleValues
     styleBackgroundColor :: ConfigValue Color,
     styleCornerRadius :: CornerRadiusStyle
   }
-  deriving (Eq, Show, Generic)
+  deriving (Generic)
   deriving (Semigroup, Monoid) via (Config ElementStyleValues)
 
 directionStyle :: DirectionStyle -> ElementStyle
@@ -145,6 +146,9 @@ borderStyle b = base $ mempty {styleBorder = b}
 cornerRadiusStyle :: CornerRadiusStyle -> ElementStyle
 cornerRadiusStyle c = base $ mempty {styleCornerRadius = c}
 
+backgroundColor :: Color -> ElementStyle
+backgroundColor c = base $ mempty {styleBackgroundColor = configValue c}
+
 type TextStyle f = Style (TextStyleValues f)
 
 data TextStyleValues f = TextStyleValues
@@ -156,28 +160,30 @@ data TextStyleValues f = TextStyleValues
   deriving (Semigroup, Monoid) via (Config (TextStyleValues f))
 
 -- | ** Calculated Layout Values
-data LayoutSizeContextVar = ViewHeight | ViewWidth deriving (Eq, Show)
+newtype LayoutCalculation = LayoutCalculation (Reader (Integer, Integer) Integer)
 
-data LayoutSizeValue
-  = Var LayoutSizeContextVar
-  | Pixels Int
-  | AddVar LayoutSizeContextVar Int
-  | SubtractVar LayoutSizeContextVar Int
-  | MultiplyVar LayoutSizeContextVar Int
-  | DivideVar LayoutSizeContextVar Int
-  deriving (Eq, Show)
+calculate :: Integer -> Integer -> LayoutCalculation -> Integer
+calculate w h (LayoutCalculation r) = runReader r (w, h)
 
-sub :: LayoutSizeContextVar -> Int -> LayoutSizeValue
-sub = SubtractVar
+calculationUnaryOp :: (Integer -> Integer) -> (LayoutCalculation -> LayoutCalculation)
+calculationUnaryOp op (LayoutCalculation x) = LayoutCalculation $ op <$> x
 
-add :: LayoutSizeContextVar -> Int -> LayoutSizeValue
-add = AddVar
+calculationBinaryOp :: (Integer -> Integer -> Integer) -> (LayoutCalculation -> LayoutCalculation -> LayoutCalculation)
+calculationBinaryOp op (LayoutCalculation x) (LayoutCalculation y) = LayoutCalculation $ op <$> x <*> y
 
-mult :: LayoutSizeContextVar -> Int -> LayoutSizeValue
-mult = MultiplyVar
+viewWidth :: LayoutCalculation
+viewWidth = LayoutCalculation $ asks fst
 
-divide :: LayoutSizeContextVar -> Int -> LayoutSizeValue
-divide = DivideVar
+viewHeight :: LayoutCalculation
+viewHeight = LayoutCalculation $ asks snd
+
+instance Num LayoutCalculation where
+  fromInteger = LayoutCalculation . pure
+  (+) = calculationBinaryOp (+)
+  (-) = calculationBinaryOp (-)
+  (*) = calculationBinaryOp (*)
+  abs = calculationUnaryOp abs
+  signum = calculationUnaryOp signum
 
 -- ** Corner Radius
 
@@ -239,27 +245,27 @@ data SizingStyle = SizingStyle
   { sizingStyleXAxis :: ConfigValue Sizing,
     sizingStyleYAxis :: ConfigValue Sizing
   }
-  deriving (Eq, Show, Generic)
+  deriving (Generic)
   deriving (Semigroup, Monoid) via (Config SizingStyle)
 
 data SizingBounds = SizingBounds
-  { sizingBoundsMax :: ConfigValue LayoutSizeValue,
-    sizingBoundsMin :: ConfigValue LayoutSizeValue
+  { sizingBoundsMax :: ConfigValue LayoutCalculation,
+    sizingBoundsMin :: ConfigValue LayoutCalculation
   }
-  deriving (Eq, Show, Generic)
+  deriving (Generic)
   deriving (Semigroup, Monoid) via (Config SizingBounds)
 
-minSize :: LayoutSizeValue -> SizingBounds
+minSize :: LayoutCalculation -> SizingBounds
 minSize v = mempty {sizingBoundsMax = configValue v}
 
-maxSize :: LayoutSizeValue -> SizingBounds
+maxSize :: LayoutCalculation -> SizingBounds
 maxSize v = mempty {sizingBoundsMin = configValue v}
 
 -- | min max
-bounds :: LayoutSizeValue -> LayoutSizeValue -> SizingBounds
+bounds :: LayoutCalculation -> LayoutCalculation -> SizingBounds
 bounds mn mx = minSize mn <> maxSize mx
 
-data Sizing = Fit SizingBounds | Grow SizingBounds | Percent Float | Fixed Int deriving (Eq, Show)
+data Sizing = Fit SizingBounds | Grow SizingBounds | Percent Float | Fixed LayoutCalculation
 
 fitX :: SizingBounds -> ElementStyle
 fitX b =
@@ -350,7 +356,7 @@ percent xy = percentX xy <> percentY xy
 percentXY :: Float -> Float -> ElementStyle
 percentXY x y = percentX x <> percentY y
 
-fixedX :: Int -> ElementStyle
+fixedX :: LayoutCalculation -> ElementStyle
 fixedX x =
   base $
     mempty
@@ -360,7 +366,7 @@ fixedX x =
             }
       }
 
-fixedY :: Int -> ElementStyle
+fixedY :: LayoutCalculation -> ElementStyle
 fixedY y =
   base $
     mempty
@@ -370,10 +376,10 @@ fixedY y =
             }
       }
 
-fixed :: Int -> ElementStyle
+fixed :: LayoutCalculation -> ElementStyle
 fixed xy = fixedX xy <> fixedY xy
 
-fixedXY :: Int -> Int -> ElementStyle
+fixedXY :: LayoutCalculation -> LayoutCalculation -> ElementStyle
 fixedXY x y = fixedX x <> fixedY y
 
 -- ** Padding

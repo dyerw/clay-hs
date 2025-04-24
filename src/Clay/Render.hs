@@ -3,15 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE StrictData #-}
 
-module Clay.Render
-  ( RenderCommand (..),
-    InputState (..),
-    RenderData (..),
-    calculateLayout,
-    Rect (..),
-    TextRenderData (..),
-  )
-where
+module Clay.Render where
 
 import Clay.Color
 import Clay.Declaration
@@ -41,7 +33,8 @@ calculateLayout root input = do
 declareRoot :: Element e f i c -> InputState -> IO [e]
 declareRoot root input = do
   ctx <- rootContext root
-  runDeclaration elementDeclaration ctx
+  (_, events) <- runDeclaration elementDeclaration ctx
+  pure events
   where
     rootContext :: Element e f i c -> IO (ElementDeclarationContext e f i c)
     rootContext root' = do
@@ -126,12 +119,14 @@ getClaySizingAxisSize :: Sizing -> ElementDeclaration e f i c (Either ClaySizing
 getClaySizingAxisSize (Fit b) = Left <$> getClaySizingMinMax b
 getClaySizingAxisSize (Grow b) = Left <$> getClaySizingMinMax b
 getClaySizingAxisSize (Percent f) = pure $ Right $ CFloat f
-getClaySizingAxisSize (Fixed i) = pure $ Right $ CFloat (fromIntegral i)
+getClaySizingAxisSize (Fixed c) = do
+  i <- resolveLayoutCalculation c
+  pure $ Right $ CFloat i
 
 getClaySizingMinMax :: SizingBounds -> ElementDeclaration e f i c ClaySizingMinMax
 getClaySizingMinMax (SizingBounds min' max') = do
-  resolvedMin <- traverse resolveLayoutSizeValue (toMaybe min')
-  resolvedMax <- traverse resolveLayoutSizeValue (toMaybe max')
+  resolvedMin <- traverse resolveLayoutCalculation (toMaybe min')
+  resolvedMax <- traverse resolveLayoutCalculation (toMaybe max')
   pure $
     ClaySizingMinMax
       (CFloat <$> resolvedMin)
@@ -193,13 +188,6 @@ getClayLayoutConfigLayoutDirection = do
 
 getClayBackgroundColor :: ElementDeclaration e f i c (Maybe ClayColor)
 getClayBackgroundColor = fmap toClayColor <$> getConfigValue styleBackgroundColor
-  where
-    toClayColor (Color r g b a) =
-      ClayColor
-        (CFloat $ fromIntegral r)
-        (CFloat $ fromIntegral g)
-        (CFloat $ fromIntegral b)
-        (CFloat $ fromIntegral a)
 
 getClayCornerRadius :: ElementDeclaration e f i c (Maybe ClayCornerRadius)
 getClayCornerRadius =
