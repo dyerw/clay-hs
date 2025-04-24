@@ -67,6 +67,10 @@ spec = do
         color <- withStyle (backgroundColor red <> hovered (backgroundColor blue)) getClayBackgroundColor
         color `shouldBe` Just (toClayColor red)
 
+      it "returns hovered value when both are set and hovered" $ do
+        color <- withHoveredStyle (backgroundColor red <> hovered (backgroundColor blue)) getClayBackgroundColor
+        color `shouldBe` Just (toClayColor blue)
+
     describe "Converting to Clay structures" $ do
       it "getClaySizingAxisHeight growY" $ do
         height <- withStyle growY_ getClaySizingHeight
