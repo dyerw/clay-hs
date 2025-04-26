@@ -11,17 +11,17 @@ import Test.Hspec
 
 type TestEvents = Text
 
-type TestImages = Text
+data TestImage = TestImage {name :: Text, dims :: (Float, Float)}
 
 type TestFonts = Text
 
 type TestCustom = Text
 
-type TestElement = Element TestEvents TestFonts TestImages TestCustom
+type TestElement = Element TestEvents TestFonts TestImage TestCustom
 
-type TestElementDeclarationContext = ElementDeclarationContext TestEvents TestFonts TestImages TestCustom
+type TestElementDeclarationContext = ElementDeclarationContext TestEvents TestFonts TestImage TestCustom
 
-type TestElementDeclaration a = ElementDeclaration TestEvents TestFonts TestImages TestCustom a
+type TestElementDeclaration a = ElementDeclaration TestEvents TestFonts TestImage TestCustom a
 
 spec :: Spec
 spec = do

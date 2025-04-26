@@ -18,7 +18,7 @@ import Foreign (Word16)
 import Foreign.C.Types
 import Foreign.Ptr (Ptr)
 
-calculateLayout :: Element e f i c -> InputState -> IO ([RenderCommand f], [e])
+calculateLayout :: (HasSourceDimensions i) => Element e f i c -> InputState -> IO ([RenderCommand f], [e])
 calculateLayout root input = do
   updateInput input
 
@@ -30,7 +30,7 @@ calculateLayout root input = do
   let commands = clayRenderCommandToRenderCommand <$> clayCommands
   pure (commands, events)
 
-declareRoot :: Element e f i c -> InputState -> IO [e]
+declareRoot :: (HasSourceDimensions i) => Element e f i c -> InputState -> IO [e]
 declareRoot root input = do
   ctx <- rootContext root
   (_, events) <- runDeclaration elementDeclaration ctx
@@ -42,7 +42,7 @@ declareRoot root input = do
       isHovered <- clayHovered
       pure $ ElementDeclarationContext root' (CommonDeclarationContextFields input isHovered Nothing eid)
 
-elementDeclaration :: ElementDeclaration e f i c ()
+elementDeclaration :: (HasSourceDimensions i) => ElementDeclaration e f i c ()
 elementDeclaration = do
   liftIO clayOpenElement
   configureElement
@@ -66,12 +66,12 @@ data RenderCommand font = RenderCommand
 newtype RenderData font
   = TextData (TextRenderData font)
 
-configureElement :: ElementDeclaration e f i c ()
+configureElement :: (HasSourceDimensions i) => ElementDeclaration e f i c ()
 configureElement = do
   clayDecl <- getClayElementDeclaration
   liftIO $ clayConfigureOpenElement clayDecl
 
-getClayElementDeclaration :: ElementDeclaration e f i c ClayElementDeclaration
+getClayElementDeclaration :: (HasSourceDimensions i) => ElementDeclaration e f i c ClayElementDeclaration
 getClayElementDeclaration =
   ClayElementDeclaration
     <$> getContextElementId
@@ -199,12 +199,17 @@ getClayCornerRadius =
             <*> (fromMaybe 0 <$> getCFloatValue (cornerRadiusStyleBottomRight . styleCornerRadius))
         )
 
-getClayImageElementConfig :: ElementDeclaration e f i c (Maybe ClayImageElementConfig)
+class HasSourceDimensions i where
+  sourceDimensions :: i -> (Float, Float)
+
+getClayImageElementConfig :: (HasSourceDimensions i) => ElementDeclaration e f i c (Maybe ClayImageElementConfig)
 getClayImageElementConfig = do
   ele <- getDeclarationElement
   case ele of
     ImageElement (ImageConfig {imageConfigImage}) -> do
-      pure undefined
+      ptr <- registerImage imageConfigImage
+      let (srcW, srcH) = sourceDimensions imageConfigImage
+      pure $ Just $ ClayImageElementConfig ptr (ClayDimensions (CFloat srcW) (CFloat srcH))
     _ -> pure Nothing
 
 getClayFloatingElementConfig :: ElementDeclaration e f i c (Maybe ClayFloatingElementConfig)

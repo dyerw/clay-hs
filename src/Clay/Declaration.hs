@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -8,12 +9,13 @@ module Clay.Declaration where
 
 import Clay.Layout
 import Clay.Layout.Config (ConfigValue (..))
+import qualified Clay.PointerProxyMap as PM
 import Clay.Raw
 import Clay.Raw.Types
 import Control.Monad.IO.Class
-import Control.Monad.RWS.Strict (MonadReader (ask), RWST (runRWST), asks)
+import Control.Monad.RWS.Strict (MonadReader (ask), MonadState, RWST (runRWST), asks, gets, modify)
 import Data.Maybe (fromMaybe)
-import Foreign (Word16)
+import Foreign (Ptr, Word16)
 import Foreign.C.Types
 
 newtype Declaration ctx e f i c a = Declaration
@@ -21,7 +23,7 @@ newtype Declaration ctx e f i c a = Declaration
       RWST
         ctx
         [e]
-        ()
+        (DeclarationState i c)
         IO
         a
   }
@@ -30,7 +32,8 @@ newtype Declaration ctx e f i c a = Declaration
       Applicative,
       Monad,
       MonadIO,
-      MonadReader ctx
+      MonadReader ctx,
+      MonadState (DeclarationState i c)
     )
 
 runDeclaration :: Declaration ctx e f i c a -> ctx -> IO (a, [e])
@@ -39,7 +42,7 @@ runDeclaration d ctx = do
     runRWST
       (unDeclaration d)
       ctx
-      ()
+      initialDeclarationState
   pure (a, events)
 
 type ElementDeclaration e f i c a = Declaration (ElementDeclarationContext e f i c) e f i c a
@@ -129,3 +132,25 @@ resolveLayoutCalculation calculation = do
   input <- getContextInput
   let (w, h) = inputStateLayoutDimensions input
   pure $ calculate w h calculation
+
+data DeclarationState i c = DeclarationState
+  { imagePointers :: PM.PointerProxyMap i,
+    customPointers :: PM.PointerProxyMap c
+  }
+
+initialDeclarationState :: DeclarationState i c
+initialDeclarationState = DeclarationState PM.init PM.init
+
+registerImage :: (MonadState (DeclarationState i c) m) => i -> m (Ptr ())
+registerImage img = do
+  ips <- gets imagePointers
+  let (nextIps, ptr) = PM.insert ips img
+  modify (\s -> s {imagePointers = nextIps})
+  pure ptr
+
+registerCustom :: (MonadState (DeclarationState i c) m) => c -> m (Ptr ())
+registerCustom cust = do
+  cps <- gets customPointers
+  let (nextIps, ptr) = PM.insert cps cust
+  modify (\s -> s {customPointers = nextIps})
+  pure ptr
