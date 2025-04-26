@@ -26,10 +26,10 @@ type TestElementDeclaration a = ElementDeclaration TestEvents TestFonts TestImag
 spec :: Spec
 spec = do
   describe "Rendering" $ do
-    let defaultViewHeight :: Integer
+    let defaultViewHeight :: Float
         defaultViewHeight = 1000
 
-        defaultViewWidth :: Integer
+        defaultViewWidth :: Float
         defaultViewWidth = 1000
 
         defaultInput :: InputState
@@ -60,6 +60,11 @@ spec = do
       it "view width - constant" $ do
         height <- withStyle (fixedX $ viewWidth - 100) getClaySizingWidth
         let axis = ClaySizingAxis (Right 900) claySizingTypeFixed
+        height `shouldBe` Just axis
+
+      it "view width / constant" $ do
+        height <- withStyle (fixedX $ viewWidth / 2) getClaySizingWidth
+        let axis = ClaySizingAxis (Right (CFloat (defaultViewWidth / 2))) claySizingTypeFixed
         height `shouldBe` Just axis
 
     describe "Hovered styles" $ do

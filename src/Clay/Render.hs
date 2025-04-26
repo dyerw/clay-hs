@@ -55,7 +55,7 @@ updateInput (InputState (pointerX, pointerY) pointerDown (layoutWidth, layoutHei
     (CBool $ if pointerDown then 1 else 0)
 
   claySetLayoutDimensions
-    (ClayDimensions (CFloat $ fromIntegral layoutWidth) (CFloat $ fromIntegral layoutHeight))
+    (ClayDimensions (CFloat layoutWidth) (CFloat layoutHeight))
 
 data RenderCommand font = RenderCommand
   { renderCommandBoundingBox :: Rect Float,

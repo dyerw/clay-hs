@@ -160,30 +160,34 @@ data TextStyleValues f = TextStyleValues
   deriving (Semigroup, Monoid) via (Config (TextStyleValues f))
 
 -- | ** Calculated Layout Values
-newtype LayoutCalculation = LayoutCalculation (Reader (Integer, Integer) Integer)
+newtype LayoutCalculation a = LayoutCalculation (Reader (a, a) a)
 
-calculate :: Integer -> Integer -> LayoutCalculation -> Integer
+calculate :: (Fractional a) => a -> a -> LayoutCalculation a -> a
 calculate w h (LayoutCalculation r) = runReader r (w, h)
 
-calculationUnaryOp :: (Integer -> Integer) -> (LayoutCalculation -> LayoutCalculation)
+calculationUnaryOp :: (a -> a) -> (LayoutCalculation a -> LayoutCalculation a)
 calculationUnaryOp op (LayoutCalculation x) = LayoutCalculation $ op <$> x
 
-calculationBinaryOp :: (Integer -> Integer -> Integer) -> (LayoutCalculation -> LayoutCalculation -> LayoutCalculation)
+calculationBinaryOp :: (a -> a -> a) -> (LayoutCalculation a -> LayoutCalculation a -> LayoutCalculation a)
 calculationBinaryOp op (LayoutCalculation x) (LayoutCalculation y) = LayoutCalculation $ op <$> x <*> y
 
-viewWidth :: LayoutCalculation
+viewWidth :: LayoutCalculation a
 viewWidth = LayoutCalculation $ asks fst
 
-viewHeight :: LayoutCalculation
+viewHeight :: LayoutCalculation a
 viewHeight = LayoutCalculation $ asks snd
 
-instance Num LayoutCalculation where
-  fromInteger = LayoutCalculation . pure
+instance (Num a) => Num (LayoutCalculation a) where
+  fromInteger = LayoutCalculation . pure . fromInteger
   (+) = calculationBinaryOp (+)
   (-) = calculationBinaryOp (-)
   (*) = calculationBinaryOp (*)
   abs = calculationUnaryOp abs
   signum = calculationUnaryOp signum
+
+instance (Fractional a) => Fractional (LayoutCalculation a) where
+  (/) = calculationBinaryOp (/)
+  fromRational = LayoutCalculation . pure . fromRational
 
 -- ** Corner Radius
 
@@ -249,23 +253,23 @@ data SizingStyle = SizingStyle
   deriving (Semigroup, Monoid) via (Config SizingStyle)
 
 data SizingBounds = SizingBounds
-  { sizingBoundsMax :: ConfigValue LayoutCalculation,
-    sizingBoundsMin :: ConfigValue LayoutCalculation
+  { sizingBoundsMax :: ConfigValue (LayoutCalculation Float),
+    sizingBoundsMin :: ConfigValue (LayoutCalculation Float)
   }
   deriving (Generic)
   deriving (Semigroup, Monoid) via (Config SizingBounds)
 
-minSize :: LayoutCalculation -> SizingBounds
+minSize :: LayoutCalculation Float -> SizingBounds
 minSize v = mempty {sizingBoundsMax = configValue v}
 
-maxSize :: LayoutCalculation -> SizingBounds
+maxSize :: LayoutCalculation Float -> SizingBounds
 maxSize v = mempty {sizingBoundsMin = configValue v}
 
 -- | min max
-bounds :: LayoutCalculation -> LayoutCalculation -> SizingBounds
+bounds :: LayoutCalculation Float -> LayoutCalculation Float -> SizingBounds
 bounds mn mx = minSize mn <> maxSize mx
 
-data Sizing = Fit SizingBounds | Grow SizingBounds | Percent Float | Fixed LayoutCalculation
+data Sizing = Fit SizingBounds | Grow SizingBounds | Percent Float | Fixed (LayoutCalculation Float)
 
 fitX :: SizingBounds -> ElementStyle
 fitX b =
@@ -356,7 +360,7 @@ percent xy = percentX xy <> percentY xy
 percentXY :: Float -> Float -> ElementStyle
 percentXY x y = percentX x <> percentY y
 
-fixedX :: LayoutCalculation -> ElementStyle
+fixedX :: LayoutCalculation Float -> ElementStyle
 fixedX x =
   base $
     mempty
@@ -366,7 +370,7 @@ fixedX x =
             }
       }
 
-fixedY :: LayoutCalculation -> ElementStyle
+fixedY :: LayoutCalculation Float -> ElementStyle
 fixedY y =
   base $
     mempty
@@ -376,10 +380,10 @@ fixedY y =
             }
       }
 
-fixed :: LayoutCalculation -> ElementStyle
+fixed :: LayoutCalculation Float -> ElementStyle
 fixed xy = fixedX xy <> fixedY xy
 
-fixedXY :: LayoutCalculation -> LayoutCalculation -> ElementStyle
+fixedXY :: LayoutCalculation Float -> LayoutCalculation Float -> ElementStyle
 fixedXY x y = fixedX x <> fixedY y
 
 -- ** Padding

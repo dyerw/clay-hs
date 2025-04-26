@@ -66,7 +66,7 @@ instance HasStyle (ElementDeclarationContext e f i c) ElementStyleValues where
 data InputState = InputState
   { inputStatePointerLocation :: (Integer, Integer),
     inputStatePointerDown :: Bool,
-    inputStateLayoutDimensions :: (Integer, Integer)
+    inputStateLayoutDimensions :: (Float, Float)
   }
 
 data CommonDeclarationContextFields = CommonDeclarationContextFields
@@ -124,8 +124,8 @@ getWord16Value = fmap (fmap fromIntegral) . getConfigValue
 getWord16ValueZero :: (Integral a, HasStyle ctx s, IsContextDeclaration ctx) => (s -> ConfigValue a) -> Declaration ctx e f i c Word16
 getWord16ValueZero = fmap (fromMaybe 0) . getWord16Value
 
-resolveLayoutCalculation :: (IsContextDeclaration ctx) => LayoutCalculation -> Declaration ctx e f i c Float
+resolveLayoutCalculation :: (IsContextDeclaration ctx) => LayoutCalculation Float -> Declaration ctx e f i c Float
 resolveLayoutCalculation calculation = do
   input <- getContextInput
   let (w, h) = inputStateLayoutDimensions input
-  pure $ fromIntegral $ calculate w h calculation
+  pure $ calculate w h calculation
