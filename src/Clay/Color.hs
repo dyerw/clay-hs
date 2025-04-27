@@ -20,6 +20,14 @@ toClayColor (Color r g b a) =
     (CFloat $ fromIntegral b)
     (CFloat $ fromIntegral a)
 
+fromClayColor :: ClayColor -> Color
+fromClayColor (ClayColor r g b a) =
+  Color
+    (round r)
+    (round g)
+    (round b)
+    (round a)
+
 red :: Color
 red = Color 255 0 0 255
 

@@ -1,12 +1,12 @@
 cabal-version:      3.0
-name:               clay-ui
+name:               clay-hs
 version:            0.1.0.0
 -- synopsis:
 -- description:
 license:            MIT
 license-file:       LICENSE
 author:             Liam Dyer
-maintainer:         liamd94@gmail.com
+maintainer:         dev@liamdyer.com
 -- copyright:
 category:           Graphics
 build-type:         Simple
@@ -49,7 +49,7 @@ library
         clay.h
         clayhelper.h
 
-test-suite clay-ui-test
+test-suite clay-hs-test
     import:           warnings
     default-language: Haskell2010
     type:             exitcode-stdio-1.0
@@ -58,7 +58,7 @@ test-suite clay-ui-test
     default-extensions: OverloadedStrings
     build-depends:
         base ^>=4.18,
-        clay-ui,
+        clay-hs,
         hspec >= 2.11.12,
         text
     other-modules:

@@ -1,4 +1,4 @@
-# Revision history for clay-ui
+# Revision history for clay-hs
 
 ## 0.1.0.0 -- YYYY-mm-dd
 

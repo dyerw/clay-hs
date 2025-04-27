@@ -7,6 +7,7 @@ module Clay.Render where
 
 import Clay.Color
 import Clay.Declaration
+import Clay.Geometry
 import Clay.Layout
 import Clay.Layout.Config (ConfigValue (..))
 import Clay.Raw
@@ -14,11 +15,10 @@ import Clay.Raw.Types
 import Control.Monad.IO.Class
 import Data.Maybe (fromMaybe)
 import Data.Text
-import Foreign (Word16)
+import Foreign
 import Foreign.C.Types
-import Foreign.Ptr (Ptr)
 
-calculateLayout :: (HasSourceDimensions i) => Element e f i c -> InputState -> IO ([RenderCommand f], [e])
+calculateLayout :: (HasSourceDimensions i) => Element e f i c -> InputState -> IO ([RenderCommand f i c], [e])
 calculateLayout root input = do
   updateInput input
 
@@ -57,15 +57,6 @@ updateInput (InputState (pointerX, pointerY) pointerDown (layoutWidth, layoutHei
   claySetLayoutDimensions
     (ClayDimensions (CFloat layoutWidth) (CFloat layoutHeight))
 
-data RenderCommand font = RenderCommand
-  { renderCommandBoundingBox :: Rect Float,
-    renderCommandZIndex :: Int,
-    renderCommandRenderData :: RenderData font
-  }
-
-newtype RenderData font
-  = TextData (TextRenderData font)
-
 configureElement :: (HasSourceDimensions i) => ElementDeclaration e f i c ()
 configureElement = do
   clayDecl <- getClayElementDeclaration
@@ -83,7 +74,7 @@ getClayElementDeclaration =
     <*> getClayCustomElementConfig
     <*> getClayScrollElementConfig
     <*> getClayBorderElementConfig
-    <*> getClayUserData
+    <*> pure nullPtr
 
 getClayLayoutConfig :: ElementDeclaration e f i c (Maybe ClayLayoutConfig)
 getClayLayoutConfig =
@@ -212,36 +203,104 @@ getClayImageElementConfig = do
       pure $ Just $ ClayImageElementConfig ptr (ClayDimensions (CFloat srcW) (CFloat srcH))
     _ -> pure Nothing
 
+-- TODO: Implement
 getClayFloatingElementConfig :: ElementDeclaration e f i c (Maybe ClayFloatingElementConfig)
-getClayFloatingElementConfig = undefined
+getClayFloatingElementConfig = pure Nothing
 
+-- TODO: Implement
 getClayCustomElementConfig :: ElementDeclaration e f i c (Maybe ClayCustomElementConfig)
-getClayCustomElementConfig = undefined
+getClayCustomElementConfig = pure Nothing
 
+-- TODO: Implement
 getClayScrollElementConfig :: ElementDeclaration e f i c (Maybe ClayScrollElementConfig)
-getClayScrollElementConfig = undefined
+getClayScrollElementConfig = pure Nothing
 
+-- TODO: Implement
 getClayBorderElementConfig :: ElementDeclaration e f i c (Maybe ClayBorderElementConfig)
-getClayBorderElementConfig = undefined
+getClayBorderElementConfig = pure Nothing
 
-getClayUserData :: ElementDeclaration e f i c (Ptr ())
-getClayUserData = undefined
+clayRenderCommandToRenderCommand :: ClayRenderCommand -> RenderCommand f i c
+clayRenderCommandToRenderCommand (ClayRenderCommand boundingBox renderData _ zIndex _ _) =
+  case renderData of
+    ( ClayRenderDataRectangle
+        (ClayRectangleRenderData color cornerRadius)
+      ) -> RenderCommand (fromClayBoundingBox boundingBox) (RenderRect $ RenderRectCommand (fromClayColor color) cornerRadius)
+    ( ClayRenderDataText
+        ( ClayTextRenderData
+            txt
+            color
+            font
+            fontSize
+            letterSpacing
+            height
+          )
+      ) -> undefined
+    ( ClayRenderDataImage
+        ( ClayImageRenderData
+            tint
+            cornerRadius
+            sourceDims
+            img
+          )
+      ) -> undefined
+    ( ClayRenderDataCustom
+        ( ClayCustomRenderData
+            color
+            cornerRadius
+            custom
+          )
+      ) -> undefined
+    ( ClayRenderDataBorder
+        ( ClayBorderRenderData
+            color
+            cornerRadius
+            sideWidths
+          )
+      ) -> undefined
+    (ClayRenderDataScroll (ClayScrollRenderData _ _)) -> undefined
+    ClayRenderDataNone -> undefined
 
-clayRenderCommandToRenderCommand :: ClayRenderCommand -> RenderCommand font
-clayRenderCommandToRenderCommand = undefined
-
-data Rect a = Rect
-  { rectX :: a,
-    rectY :: a,
-    rectWidth :: a,
-    rectHeight :: a
+data RenderCommand f i c = RenderCommand
+  { renderCommandBoundingBox :: Rect Float,
+    renderCommandCommand :: Command f i c
   }
 
-data TextRenderData font = TextRenderData
-  { textRenderDataText :: Text,
-    textRenderDataColor :: Color,
-    textRenderDataFont :: font,
-    textRenderDataFontSize :: Int,
-    textRenderDataLetterSpacing :: Int,
-    textRenderDataLineHeight :: Int
+data Command f i c
+  = RenderRect RenderRectCommand
+  | RenderBorder RenderBorderCommand
+  | RenderText (RenderTextCommand f)
+  | RenderImage (RenderImageCommand i)
+  | RenderCustom (RenderCustomCommand c)
+
+data RenderRectCommand = RenderRectCommand
+  { renderRectColor :: Color,
+    renderRectCornerRadius :: Corners Float
+  }
+
+data RenderBorderCommand = RenderBorderCommand
+  { renderBorderCommandColor :: Color,
+    renderBorderCommandCornerRadius :: CornerRadiusStyle,
+    renderBorderCommandWidth :: Sides Float
+  }
+
+data RenderTextCommand f = TextRenderData
+  { renderTextCommandText :: Text,
+    renderTextCommandColor :: Color,
+    renderTextCommandFont :: f,
+    renderTextCommandFontSize :: Int,
+    renderTextCommandLetterSpacing :: Int,
+    renderTextCommandLineHeight :: Int
+  }
+
+data RenderImageCommand i = RenderImageCommand
+  { renderImageCommandTint :: Color,
+    renderImageCommandCornerRadius :: Corners Float,
+    renderImageCommandSourceDimensions :: Size Float,
+    renderImageCommandImage :: i
+  }
+
+data RenderCustomCommand c = RenderCustomCommand
+  { renderCustomCommandColor :: Color,
+    renderCustomCommandCornerRadius :: Corners Float,
+    renderCustomCommandCustom :: c
   }
