@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE StrictData #-}
 
 module Clay.Declaration where
@@ -100,11 +101,23 @@ getContextParentId = declarationContextParentId . commonFields <$> ask
 getContextElementId :: (IsContextDeclaration ctx, MonadReader ctx m) => m (Maybe ClayElementId)
 getContextElementId = declarationContextElementId . commonFields <$> ask
 
+getContextChildren :: ElementDeclaration e f i c [Clay e f i c]
+getContextChildren = do
+  (ElementDeclarationContext ele _) <- ask
+  pure $ case ele of
+    Element (ElementConfig {elementConfigChildren}) -> elementConfigChildren
+    _ -> []
+
 calculateClayElementId :: Maybe ClayElementId -> Element e f i c -> IO (Maybe ClayElementId)
 calculateClayElementId parentId ele = do
   clayStringId <- traverse toClayString (getElementId ele)
   let parentIdHash = maybe 0 clayElementIdId parentId
   traverse (\csi -> clayHashString csi 0 parentIdHash) clayStringId
+
+calculateChildId :: Element e f i c -> ElementDeclaration e f i c (Maybe ClayElementId)
+calculateChildId ele = do
+  parentId <- getContextElementId
+  liftIO $ calculateClayElementId parentId ele
 
 getConfigValue :: (IsContextDeclaration ctx, HasStyle ctx s) => (s -> ConfigValue a) -> Declaration ctx e f i c (Maybe a)
 getConfigValue f = do

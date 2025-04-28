@@ -12,7 +12,9 @@ import Clay.Layout
 import Clay.Layout.Config (ConfigValue (..))
 import Clay.Raw
 import Clay.Raw.Types
+import Control.Monad (forM_)
 import Control.Monad.IO.Class
+import Control.Monad.RWS (local)
 import Data.Maybe (fromMaybe)
 import Data.Text
 import Data.Void (Void, absurd)
@@ -52,8 +54,10 @@ instance HasSourceDimensions NoImage where
 
 declareRoot :: (HasSourceDimensions i) => Element e f i c -> InputState -> IO [e]
 declareRoot root' input = do
+  clayOpenElement
   ctx <- rootContext root'
-  (_, events) <- runDeclaration elementDeclaration ctx
+  (_, events) <- runDeclaration configure ctx
+  clayCloseElement
   pure events
   where
     rootContext :: Element e f i c -> IO (ElementDeclarationContext e f i c)
@@ -62,11 +66,34 @@ declareRoot root' input = do
       isHovered <- clayHovered
       pure $ ElementDeclarationContext root'' (CommonDeclarationContextFields input isHovered Nothing eid)
 
-elementDeclaration :: (HasSourceDimensions i) => ElementDeclaration e f i c ()
-elementDeclaration = do
-  liftIO clayOpenElement
+declareChild :: (HasSourceDimensions i) => Clay e f i c -> ElementDeclaration e f i c ()
+declareChild child = do
+  case child of
+    ClayElement childElement -> do
+      liftIO clayOpenElement
+      parentId <- getContextElementId
+      childId <- calculateChildId childElement
+      childHovered <- liftIO clayHovered
+      local
+        ( \(ElementDeclarationContext _ common) ->
+            ElementDeclarationContext
+              childElement
+              common
+                { declarationContextElementId = childId,
+                  declarationContextParentId = parentId,
+                  declarationContextIsHovered = childHovered
+                }
+        )
+        configure
+      liftIO clayCloseElement
+    -- TODO: Text declarations
+    ClayText childText -> undefined
+
+configure :: (HasSourceDimensions i) => ElementDeclaration e f i c ()
+configure = do
   configureElement
-  liftIO clayCloseElement
+  children <- getContextChildren
+  forM_ children declareChild
 
 updateInput :: InputState -> IO ()
 updateInput (InputState (pointerX, pointerY) pointerDown (layoutWidth, layoutHeight)) = do

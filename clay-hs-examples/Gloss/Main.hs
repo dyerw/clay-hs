@@ -5,7 +5,6 @@ import Clay.Declaration
 import Clay.Geometry
 import Clay.Layout
 import Clay.Render
-import Debug.Trace
 import qualified Graphics.Gloss as G
 
 main :: IO ()
@@ -49,8 +48,15 @@ type GlossElement = Element Event Font NoImage Custom
 layout :: GlossElement
 layout =
   root
-    (backgroundColor CC.blue <> growY_ <> fixedX (viewWidth / 2))
-    [ element_ (backgroundColor CC.red <> fixed 100) []
+    ( backgroundColor CC.blue
+        <> growY_
+        <> fixedX (viewWidth / 2)
+        <> paddingAll 10
+        <> childGap 5
+        <> childAlignY AlignYTop
+    )
+    [ element_ (backgroundColor CC.red <> fixed 100) [],
+      element_ (backgroundColor CC.red <> fixed 100) []
     ]
 
 renderPicture :: [RenderCommand Font NoImage Custom] -> G.Picture
@@ -64,9 +70,8 @@ renderCommandToPicture cmd = case cmd of
 
 toGlossRect :: Rect Float -> G.Picture
 toGlossRect (Rect (Size w h) (Position x y)) =
-  traceShowId $
-    G.polygon
-      [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+  G.polygon
+    [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
 
 toGlossColor :: CC.Color -> G.Color
 toGlossColor (CC.Color r g b a) = G.makeColor (toF r) (toF g) (toF b) (toF a)

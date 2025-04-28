@@ -454,6 +454,9 @@ childAlignX a = base $ mempty {styleChild = mempty {childStyleChildAlignX = conf
 childAlignY :: YAlignment -> ElementStyle
 childAlignY a = base $ mempty {styleChild = mempty {childStyleChildAlignY = configValue a}}
 
+childCenter :: ElementStyle
+childCenter = childAlignX AlignXCenter <> childAlignY AlignYCenter
+
 -- | * Border
 data BorderSideStyle = BorderSideStyle
   { borderSideStyleWidth :: ConfigValue Int,
