@@ -11,7 +11,10 @@ import Test.Hspec
 
 type TestEvents = Text
 
-data TestImage = TestImage {name :: Text, dims :: (Float, Float)}
+data TestImage = TestImage {name :: Text, dims :: (Float, Float)} deriving (Eq, Show)
+
+instance HasSourceDimensions TestImage where
+  sourceDimensions = dims
 
 type TestFonts = Text
 
@@ -86,3 +89,10 @@ spec = do
         height <- withStyle (growY $ maxSize 100) getClaySizingHeight
         let axis = ClaySizingAxis (Left (ClaySizingMinMax Nothing (Just (CFloat 100)))) claySizingTypeGrow
         height `shouldBe` Just axis
+
+    describe "render commands" $ do
+      it "returns a render command for a blue rectangle filling the view" $ do
+        let layout :: TestElement
+            layout = root (backgroundColor blue <> grow_) []
+        (renderCommands, _) <- calculateLayout layout defaultInput
+        renderCommands `shouldBe` []

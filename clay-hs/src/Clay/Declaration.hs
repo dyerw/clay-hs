@@ -67,9 +67,9 @@ instance HasStyle (ElementDeclarationContext e f i c) ElementStyleValues where
   getStyle (ElementDeclarationContext ele _) = getStyle ele
 
 data InputState = InputState
-  { inputStatePointerLocation :: (Integer, Integer),
+  { inputStatePointerLocation :: (Int, Int),
     inputStatePointerDown :: Bool,
-    inputStateLayoutDimensions :: (Float, Float)
+    inputStateLayoutDimensions :: (Int, Int)
   }
 
 data CommonDeclarationContextFields = CommonDeclarationContextFields
@@ -131,7 +131,7 @@ resolveLayoutCalculation :: (IsContextDeclaration ctx) => LayoutCalculation Floa
 resolveLayoutCalculation calculation = do
   input <- getContextInput
   let (w, h) = inputStateLayoutDimensions input
-  pure $ calculate w h calculation
+  pure $ calculate (fromIntegral w) (fromIntegral h) calculation
 
 data DeclarationState i c = DeclarationState
   { imagePointers :: PM.PointerProxyMap i,

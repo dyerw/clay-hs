@@ -48,6 +48,9 @@ data TextConfig f = TextConfig
   }
 
 -- | * Constructors
+root :: ElementStyle -> [Clay e f i c] -> Element e f i c
+root style children = Element $ ElementConfig Nothing style children
+
 element :: Text -> ElementStyle -> [Clay e f i c] -> Clay e f i c
 element eid style children =
   ClayElement $

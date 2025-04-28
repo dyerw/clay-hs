@@ -15,32 +15,52 @@ import Clay.Raw.Types
 import Control.Monad.IO.Class
 import Data.Maybe (fromMaybe)
 import Data.Text
+import Data.Void (Void, absurd)
 import Foreign
 import Foreign.C.Types
 
+newtype RenderContext = RenderContext {renderContextClayContext :: Ptr ClayContext}
+
+initialize :: Size Int -> IO RenderContext
+initialize initialDimensions = do
+  minMemorySize <- fromIntegral <$> clayMinMemorySize
+  arenaMem <- mallocBytes minMemorySize
+  arena <-
+    clayCreateArenaWithCapacityAndMemory
+      (fromIntegral minMemorySize)
+      arenaMem
+  let handleError = print
+  ctxPtr <- clayInitialize arena (toClayDimensions initialDimensions) handleError
+  pure (RenderContext ctxPtr)
+
 calculateLayout :: (HasSourceDimensions i) => Element e f i c -> InputState -> IO ([RenderCommand f i c], [e])
-calculateLayout root input = do
+calculateLayout root' input = do
   updateInput input
 
   clayBeginLayout
-  events <- declareRoot root input
+  events <- declareRoot root' input
 
   clayCommands <- clayEndLayout >>= arrayToList
 
   let commands = clayRenderCommandToRenderCommand <$> clayCommands
   pure (commands, events)
 
+newtype NoImage = NoImage Void deriving (Eq, Show)
+
+instance HasSourceDimensions NoImage where
+  sourceDimensions (NoImage v) = absurd v
+
 declareRoot :: (HasSourceDimensions i) => Element e f i c -> InputState -> IO [e]
-declareRoot root input = do
-  ctx <- rootContext root
+declareRoot root' input = do
+  ctx <- rootContext root'
   (_, events) <- runDeclaration elementDeclaration ctx
   pure events
   where
     rootContext :: Element e f i c -> IO (ElementDeclarationContext e f i c)
-    rootContext root' = do
+    rootContext root'' = do
       eid <- calculateClayElementId Nothing root'
       isHovered <- clayHovered
-      pure $ ElementDeclarationContext root' (CommonDeclarationContextFields input isHovered Nothing eid)
+      pure $ ElementDeclarationContext root'' (CommonDeclarationContextFields input isHovered Nothing eid)
 
 elementDeclaration :: (HasSourceDimensions i) => ElementDeclaration e f i c ()
 elementDeclaration = do
@@ -50,12 +70,14 @@ elementDeclaration = do
 
 updateInput :: InputState -> IO ()
 updateInput (InputState (pointerX, pointerY) pointerDown (layoutWidth, layoutHeight)) = do
+  print "setting pointer state"
   claySetPointerState
     (ClayVector2 (CFloat $ fromIntegral pointerX) (CFloat $ fromIntegral pointerY))
     (CBool $ if pointerDown then 1 else 0)
 
+  print "setting layout dimensions"
   claySetLayoutDimensions
-    (ClayDimensions (CFloat layoutWidth) (CFloat layoutHeight))
+    (ClayDimensions (CFloat $ fromIntegral layoutWidth) (CFloat $ fromIntegral layoutHeight))
 
 configureElement :: (HasSourceDimensions i) => ElementDeclaration e f i c ()
 configureElement = do
@@ -223,8 +245,15 @@ clayRenderCommandToRenderCommand :: ClayRenderCommand -> RenderCommand f i c
 clayRenderCommandToRenderCommand (ClayRenderCommand boundingBox renderData _ zIndex _ _) =
   case renderData of
     ( ClayRenderDataRectangle
-        (ClayRectangleRenderData color cornerRadius)
-      ) -> RenderCommand (fromClayBoundingBox boundingBox) (RenderRect $ RenderRectCommand (fromClayColor color) cornerRadius)
+        (ClayRectangleRenderData color cornerRadius')
+      ) ->
+        RenderCommand
+          (fromClayBoundingBox boundingBox)
+          ( RenderRect $
+              RenderRectCommand
+                (fromClayColor color)
+                (fromClayCornerRadius cornerRadius')
+          )
     ( ClayRenderDataText
         ( ClayTextRenderData
             txt
@@ -264,6 +293,7 @@ data RenderCommand f i c = RenderCommand
   { renderCommandBoundingBox :: Rect Float,
     renderCommandCommand :: Command f i c
   }
+  deriving (Eq, Show)
 
 data Command f i c
   = RenderRect RenderRectCommand
@@ -271,17 +301,20 @@ data Command f i c
   | RenderText (RenderTextCommand f)
   | RenderImage (RenderImageCommand i)
   | RenderCustom (RenderCustomCommand c)
+  deriving (Eq, Show)
 
 data RenderRectCommand = RenderRectCommand
   { renderRectColor :: Color,
     renderRectCornerRadius :: Corners Float
   }
+  deriving (Eq, Show)
 
 data RenderBorderCommand = RenderBorderCommand
   { renderBorderCommandColor :: Color,
-    renderBorderCommandCornerRadius :: CornerRadiusStyle,
+    renderBorderCommandCornerRadius :: Corners Float,
     renderBorderCommandWidth :: Sides Float
   }
+  deriving (Eq, Show)
 
 data RenderTextCommand f = TextRenderData
   { renderTextCommandText :: Text,
@@ -291,6 +324,7 @@ data RenderTextCommand f = TextRenderData
     renderTextCommandLetterSpacing :: Int,
     renderTextCommandLineHeight :: Int
   }
+  deriving (Eq, Show)
 
 data RenderImageCommand i = RenderImageCommand
   { renderImageCommandTint :: Color,
@@ -298,9 +332,11 @@ data RenderImageCommand i = RenderImageCommand
     renderImageCommandSourceDimensions :: Size Float,
     renderImageCommandImage :: i
   }
+  deriving (Eq, Show)
 
 data RenderCustomCommand c = RenderCustomCommand
   { renderCustomCommandColor :: Color,
     renderCustomCommandCornerRadius :: Corners Float,
     renderCustomCommandCustom :: c
   }
+  deriving (Eq, Show)

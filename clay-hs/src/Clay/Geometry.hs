@@ -4,6 +4,7 @@ module Clay.Geometry where
 import Clay.Raw.Types
 
 data Rect a = Rect {rectSize :: Size a, rectPosition :: Position a}
+  deriving (Eq, Show)
 
 fromClayBoundingBox :: ClayBoundingBox -> Rect Float
 fromClayBoundingBox (ClayBoundingBox x y w h) =
@@ -11,9 +12,12 @@ fromClayBoundingBox (ClayBoundingBox x y w h) =
     (Size (realToFrac w) (realToFrac h))
     (Position (realToFrac x) (realToFrac y))
 
-data Size a = Size {sizeWidth :: a, sizeHeight :: a}
+data Size a = Size {sizeWidth :: a, sizeHeight :: a} deriving (Eq, Show)
 
-data Position a = Position {positionX :: a, positionY :: a}
+toClayDimensions :: (Integral a) => Size a -> ClayDimensions
+toClayDimensions (Size w h) = ClayDimensions (fromIntegral w) (fromIntegral h)
+
+data Position a = Position {positionX :: a, positionY :: a} deriving (Eq, Show)
 
 data Sides a = Sides
   { sidesTop :: a,
@@ -21,6 +25,7 @@ data Sides a = Sides
     sidesLeft :: a,
     sidesBottom :: a
   }
+  deriving (Eq, Show)
 
 data Corners a = Corners
   { cornersTopLeft :: a,
@@ -28,6 +33,7 @@ data Corners a = Corners
     cornersBottomRight :: a,
     cornersBottomLeft :: a
   }
+  deriving (Eq, Show)
 
 fromClayCornerRadius :: ClayCornerRadius -> Corners Float
 fromClayCornerRadius (ClayCornerRadius topLeft topRight bottomLeft bottomRight) =

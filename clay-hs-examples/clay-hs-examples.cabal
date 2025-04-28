@@ -1,0 +1,31 @@
+cabal-version:       3.0
+name:                clay-hs-examples
+version:             0.0.1
+license:             MIT
+license-file:        LICENSE
+author:              Liam Dyer
+maintainer:          dev@liamdyer.com
+build-Type:          Simple
+category:            Graphics
+description:
+        Examples using the clay-hs layout library.
+
+synopsis:
+        Examples using the clay-hs layout library.
+
+executable gloss-example
+  main-is:        Main.hs
+  hs-source-dirs: Gloss
+  build-depends:
+          base                          ^>= 4.18
+        , gloss                         == 1.13.*
+        , clay-hs
+
+  default-Language:
+        Haskell2010
+
+  ghc-options:
+        -O2
+        -Wall
+        -threaded
+
