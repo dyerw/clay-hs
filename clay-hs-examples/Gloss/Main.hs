@@ -8,8 +8,6 @@ import Clay.Render
 import Debug.Trace
 import qualified Graphics.Gloss as G
 
--- main = G.display (G.InWindow "Nice Window" (glossViewWidth, glossViewHeight) (0, 0)) G.white (G.Translate (-1 * (fromIntegral glossViewWidth / 2)) (-40) $ G.Circle 80)
-
 main :: IO ()
 main = do
   _ <- initialize (Size glossViewWidth glossViewHeight)

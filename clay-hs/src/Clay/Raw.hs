@@ -34,7 +34,6 @@ where
 
 import Clay.Raw.Types
 import Control.Exception (bracket)
-import Control.Monad.IO.Class (MonadIO)
 import Data.Text
 import Foreign
 import Foreign.C
@@ -59,8 +58,6 @@ foreign import capi "clayhelper.h ClayHelper_SetPointerState"
 
 claySetPointerState :: ClayVector2 -> CBool -> IO ()
 claySetPointerState position pointerDown = alloca $ \ptr -> do
-  print position
-  print pointerDown
   poke ptr position
   claySetPointerStateHelper ptr pointerDown
 

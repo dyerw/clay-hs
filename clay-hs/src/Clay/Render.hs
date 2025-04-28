@@ -70,12 +70,10 @@ elementDeclaration = do
 
 updateInput :: InputState -> IO ()
 updateInput (InputState (pointerX, pointerY) pointerDown (layoutWidth, layoutHeight)) = do
-  print "setting pointer state"
   claySetPointerState
     (ClayVector2 (CFloat $ fromIntegral pointerX) (CFloat $ fromIntegral pointerY))
     (CBool $ if pointerDown then 1 else 0)
 
-  print "setting layout dimensions"
   claySetLayoutDimensions
     (ClayDimensions (CFloat $ fromIntegral layoutWidth) (CFloat $ fromIntegral layoutHeight))
 
